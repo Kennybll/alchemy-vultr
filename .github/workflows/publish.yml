@@ -1,3 +1,19 @@
+# Tokenless publish via npm Trusted Publishing (OIDC).
+# https://docs.npmjs.com/trusted-publishers/
+#
+# One-time npmjs.com setup (package Settings → Trusted Publisher):
+#   - Provider: GitHub Actions
+#   - Organization/user: Kennybll
+#   - Repository: alchemy-vultr
+#   - Workflow filename: publish.yml   ← filename only, must match exactly
+#   - Allowed actions: npm publish
+#
+# After a successful OIDC publish, revoke any old NPM_TOKEN and prefer
+# "Require two-factor authentication and disallow tokens" on the package.
+#
+# First-time packages: publish once manually (or create the package on npm)
+# so Trusted Publisher settings exist, then use this workflow.
+
 name: Publish
 
 on:
@@ -12,7 +28,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write
+  id-token: write # required for OIDC → npm
 
 jobs:
   publish:
@@ -28,17 +44,27 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Setup Node (npm provenance)
+      - name: Setup Node (OIDC publish)
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          registry-url: "https://registry.npmjs.org"
+          # Trusted publishing: npm ≥ 11.5.1, Node ≥ 22.14 (docs recommend 24).
+          node-version: "24"
+          # Do NOT set registry-url here. setup-node would write
+          # //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}, and an empty
+          # token short-circuits the OIDC exchange (ENEEDAUTH).
+          # https://github.com/npm/documentation/issues/1960
+
+      - name: Ensure npm CLI supports trusted publishing
+        run: npm install -g npm@latest
 
       - name: Install
         run: bun install --frozen-lockfile
 
       - name: Typecheck
         run: bun run typecheck
+
+      - name: Lint
+        run: bun run lint
 
       - name: Test
         run: bun run test
@@ -48,7 +74,11 @@ jobs:
 
       - name: Publish to npm
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # Explicitly clear any token so npm uses OIDC, not classic auth.
+          NODE_AUTH_TOKEN: ""
         run: |
           TAG="${{ github.event.inputs.tag || 'latest' }}"
-          npm publish --access public --tag "$TAG" --provenance
+          npm config set registry https://registry.npmjs.org
+          # Provenance is automatic with trusted publishing; --access public
+          # is also in publishConfig but kept here for the first publish.
+          npm publish --access public --tag "$TAG"

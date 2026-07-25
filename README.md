@@ -166,14 +166,30 @@ bun run test:live   # sets CI=1 so AuthProvider reads the env key
 
 GitHub Actions:
 
-- `.github/workflows/ci.yml` — typecheck, test, build on PRs/pushes
-- `.github/workflows/publish.yml` — npm publish on GitHub Release (needs `NPM_TOKEN`)
+- `.github/workflows/ci.yml` — typecheck, lint, test, build on PRs/pushes
+- `.github/workflows/publish.yml` — **OIDC trusted publishing** on GitHub Release (no `NPM_TOKEN`)
+
+npm is deprecating 2FA-bypass publish tokens ([changelog](https://github.blog/changelog/2026-07-08-npm-install-time-security-and-gat-bypass2fa-deprecation/)); this repo publishes via [Trusted Publishing](https://docs.npmjs.com/trusted-publishers/).
+
+### One-time npmjs.com setup
+
+1. Ensure the package exists on npm (first version can be a manual `npm publish` if needed).
+2. Package **Settings → Trusted Publisher → GitHub Actions**:
+   - Organization/user: `Kennybll`
+   - Repository: `alchemy-vultr`
+   - Workflow filename: `publish.yml` (filename only — must match exactly)
+   - Allowed actions: `npm publish`
+3. After a successful Actions publish, revoke any old automation tokens and prefer **Require two-factor authentication and disallow tokens** under Publishing access.
+
+### Release
 
 ```bash
 npm version patch
 git push --follow-tags
-# create a GitHub Release for the tag to trigger publish
+# create a GitHub Release for the tag to trigger publish.yml
 ```
+
+Or run the **Publish** workflow manually (`workflow_dispatch`) with an optional dist-tag.
 
 ## License
 
