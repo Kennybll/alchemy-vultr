@@ -160,12 +160,6 @@ export VULTR_API_KEY=...
 bun run test:live   # sets CI=1 so AuthProvider reads the env key
 ```
 
-Regenerate the CRUD resource modules from the catalog:
-
-```bash
-bun run generate:resources
-```
-
 ## Publishing
 
 GitHub Actions:
