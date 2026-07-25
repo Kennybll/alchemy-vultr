@@ -26,10 +26,25 @@
       "bun": "./src/index.ts",
       "import": "./dist/index.js"
     },
+    "./AuthProvider": {
+      "types": "./dist/AuthProvider.d.ts",
+      "bun": "./src/AuthProvider.ts",
+      "import": "./dist/AuthProvider.js"
+    },
+    "./Credentials": {
+      "types": "./dist/Credentials.d.ts",
+      "bun": "./src/Credentials.ts",
+      "import": "./dist/Credentials.js"
+    },
+    "./Providers": {
+      "types": "./dist/Providers.d.ts",
+      "bun": "./src/Providers.ts",
+      "import": "./dist/Providers.js"
+    },
     "./*": {
-      "types": "./dist/*.d.ts",
-      "bun": "./src/*.ts",
-      "import": "./dist/*.js"
+      "types": "./dist/*/index.d.ts",
+      "bun": "./src/*/index.ts",
+      "import": "./dist/*/index.js"
     }
   },
   "scripts": {

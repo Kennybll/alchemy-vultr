@@ -12,6 +12,8 @@ export interface CrudResourceConfig<
   Attributes extends object,
 > {
   readonly type: Type;
+  /** Legacy type names for rename / namespace migrations. */
+  readonly aliases?: ReadonlyArray<string>;
   readonly description?: string;
   readonly stables: ReadonlyArray<keyof Attributes & string>;
   readonly idAttribute: keyof Attributes & string;
@@ -46,9 +48,10 @@ export const defineCrudResource = <
 >(
   config: CrudResourceConfig<Type, Props, Attributes>,
 ) => {
-  const ResourceTag = (Resource as any)(config.type) as ReturnType<
-    typeof Resource<Resource<Type, Props, Attributes>>
-  >;
+  const ResourceTag = (Resource as any)(
+    config.type,
+    config.aliases ? { aliases: config.aliases } : undefined,
+  ) as ReturnType<typeof Resource<Resource<Type, Props, Attributes>>>;
 
   const ProviderLayer = () =>
     Provider.succeed(

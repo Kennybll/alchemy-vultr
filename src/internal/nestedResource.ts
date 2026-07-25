@@ -15,6 +15,7 @@ export interface NestedCrudConfig<
   Attributes extends object,
 > {
   readonly type: Type;
+  readonly aliases?: ReadonlyArray<string>;
   readonly stables: ReadonlyArray<keyof Attributes & string>;
   readonly idAttribute: keyof Attributes & string;
   readonly parentIdAttribute: keyof Attributes & string;
@@ -48,9 +49,10 @@ export const defineNestedCrudResource = <
 >(
   config: NestedCrudConfig<Type, Props, Attributes>,
 ) => {
-  const ResourceTag = (Resource as any)(config.type) as ReturnType<
-    typeof Resource<Resource<Type, Props, Attributes>>
-  >;
+  const ResourceTag = (Resource as any)(
+    config.type,
+    config.aliases ? { aliases: config.aliases } : undefined,
+  ) as ReturnType<typeof Resource<Resource<Type, Props, Attributes>>>;
 
   const ProviderLayer = () =>
     Provider.succeed(

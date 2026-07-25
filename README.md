@@ -2,6 +2,8 @@
 
 [Alchemy Effect](https://alchemy.run) provider for [Vultr](https://www.vultr.com/api/) — typed Infrastructure-as-Effects resources for Vultr primitives, built on Effect.
 
+Layout matches Alchemy’s AWS / Cloudflare providers: root exports for auth and registration, plus one namespaced service folder per API surface (`Vultr.Instance.Instance`, `Vultr.Firewall.Group`, …).
+
 ## Requirements
 
 - [Bun](https://bun.sh) ≥ 1.2
@@ -29,17 +31,17 @@ export default Alchemy.Stack(
     state: Alchemy.localState(),
   },
   Effect.gen(function* () {
-    const key = yield* Vultr.SshKey("deploy", {
+    const key = yield* Vultr.SshKey.SshKey("deploy", {
       name: "deploy",
       sshKey: "ssh-ed25519 AAAA...",
     });
 
-    const vpc = yield* Vultr.Vpc("net", {
+    const vpc = yield* Vultr.Vpc.Vpc("net", {
       region: "ewr",
       description: "app network",
     });
 
-    const server = yield* Vultr.Instance("web", {
+    const server = yield* Vultr.Instance.Instance("web", {
       region: "ewr",
       plan: "vc2-1c-1gb",
       osId: 2284,
@@ -55,6 +57,13 @@ export default Alchemy.Stack(
     };
   }),
 );
+```
+
+Service namespaces can also be imported directly (same pattern as `alchemy/AWS/S3`):
+
+```typescript
+import * as Instance from "alchemy-vultr/Instance";
+import * as Vpc from "alchemy-vultr/Vpc";
 ```
 
 ```bash
@@ -74,25 +83,25 @@ Or run `bun alchemy login` and choose the Vultr auth provider (env or stored API
 
 ## Resources
 
-Include `Vultr.providers()` in your stack. Every resource below is registered.
+Include `Vultr.providers()` in your stack. Type IDs are `Vultr.<Service>.<Resource>` (with aliases for the previous flat names).
 
 ### Compute
-`Instance`, `InstanceIpv4`, `InstanceTemplate`, `BareMetal`, `Snapshot`, `SnapshotFromUrl`, `Iso`, `ReservedIp`, `ReverseIpv4`, `ReverseIpv6`
+`Instance.Instance`, `Instance.Ipv4`, `Instance.Template`, `BareMetal.Server`, `Snapshot.Snapshot`, `Snapshot.FromUrl`, `Iso.Iso`, `ReservedIp.ReservedIp`, `ReverseDns.Ipv4`, `ReverseDns.Ipv6`
 
 ### Networking
-`Vpc`, `NatGateway`, `NatGatewayFirewallRule`, `NatGatewayPortForwardingRule`, `FirewallGroup`, `FirewallRule`, `LoadBalancer`
+`Vpc.Vpc`, `Vpc.NatGateway`, `Vpc.NatGatewayFirewallRule`, `Vpc.NatGatewayPortForwardingRule`, `Firewall.Group`, `Firewall.Rule`, `LoadBalancer.LoadBalancer`
 
 ### Kubernetes
-`Kubernetes`, `KubernetesNodePool`
+`Kubernetes.Cluster`, `Kubernetes.NodePool`
 
 ### Data
-`BlockStorage`, `BlockStorageSnapshot`, `ObjectStorage`, `ObjectStorageBucket`, `VirtualFileSystemStorage`, `Database`, `DatabaseUser`, `DatabaseDb`, `DatabaseReplica`, `DatabaseConnectionPool`, `DatabaseTopic`, `DatabaseQuota`, `DatabaseConnector`
+`BlockStorage.Volume`, `BlockStorage.Snapshot`, `ObjectStorage.Subscription`, `ObjectStorage.Bucket`, `Vfs.Storage`, `Database.Database`, `Database.User`, `Database.Db`, `Database.Replica`, `Database.ConnectionPool`, `Database.Topic`, `Database.Quota`, `Database.Connector`
 
 ### DNS & CDN
-`DnsDomain`, `DnsRecord`, `CdnPullZone`, `CdnPushZone`
+`DNS.Domain`, `DNS.Record`, `CDN.PullZone`, `CDN.PushZone`
 
 ### Platform
-`SshKey`, `StartupScript`, `User`, `ApiKey`, `ContainerRegistry`, `Inference`, `Organization`, `OrganizationGroup`, `OrganizationInvitation`, `OrganizationPolicy`, `OrganizationRole`, `OrganizationRoleTrust`, `OidcIssuer`, `OidcProvider`, `OidcToken`
+`SshKey.SshKey`, `StartupScript.StartupScript`, `User.User`, `ApiKey.ApiKey`, `ContainerRegistry.Registry`, `Inference.Subscription`, `Organization.Organization`, `Organization.Group`, `Organization.Invitation`, `Organization.Policy`, `Organization.Role`, `Organization.RoleTrust`, `Oidc.Issuer`, `Oidc.Provider`, `Oidc.Token`
 
 ### Catalog helpers
 
