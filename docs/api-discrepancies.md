@@ -85,10 +85,16 @@ When a new live mismatch appears, prefer extending classification in
 `src/internal/Client.ts` (this provider’s “SDK patch”) over untyped catches in
 resources — same doctrine as Alchemy’s distilled flywheel.
 
+## Stages (Alchemy, not Vultr)
+
+Alchemy stages are not a Vultr API concept. Isolation is **state + physical
+names** only — see [`docs/stages.md`](stages.md). Hard-coded resource names
+shared across `--stage` values will collide on the same Vultr account.
+
 ## Live test commands
 
 ```bash
-# Catalog + lifecycle (SSH, startup script, VPC, firewall)
+# Catalog + lifecycle + multi-stage isolation
 CI=1 VULTR_API_KEY=... bun run test:live
 ```
 

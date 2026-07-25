@@ -69,10 +69,16 @@ Bundle via `Provider.ProviderCollection` + `providers()` Layer; credentials are 
 - Duration-like props accept `Duration.Input` (`"30 seconds"`, `Duration.hours(1)`) and convert with `src/internal/duration.ts`.
 - Optional names/labels use `createPhysicalName` from `alchemy` when the API allows omission.
 
+## Stages
+
+Alchemy stages isolate state and physical names; Vultr does not. For
+account-global named resources (`SshKey`, `StartupScript`), omit `name` so
+`createPhysicalName` embeds `{stack}-{id}-{stage}-…`. See `docs/stages.md`.
+
 ## Tests
 
 - Unit: `bun run test` (vitest) — client + helpers.
-- Live: `bun run test:live` — requires `VULTR_API_KEY`. Shape: `stack.destroy()` → deploy → out-of-band `VultrClient` verify → update → destroy → prove gone. Bound retries; skipIf-gate expensive entitlements.
+- Live: `bun run test:live` — requires `VULTR_API_KEY`. Shape: `stack.destroy()` → deploy → out-of-band `VultrClient` verify → update → destroy → prove gone. Includes multi-stage isolation in `test/live/Stages.test.ts`. Bound retries; skipIf-gate expensive entitlements.
 
 ## Factory catalog
 

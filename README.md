@@ -31,33 +31,49 @@ export default Alchemy.Stack(
     state: Alchemy.localState(),
   },
   Effect.gen(function* () {
+    const stage = yield* Alchemy.Stage;
+
+    // Omit `name` so createPhysicalName embeds the stage (multi-stage safe).
     const key = yield* Vultr.SshKey.SshKey("deploy", {
-      name: "deploy",
       sshKey: "ssh-ed25519 AAAA...",
     });
 
     const vpc = yield* Vultr.Vpc.Vpc("net", {
       region: "ewr",
-      description: "app network",
+      description: `app-network-${stage}`,
     });
 
     const server = yield* Vultr.Instance.Instance("web", {
       region: "ewr",
       plan: "vc2-1c-1gb",
       osId: 2284,
-      label: "web",
+      label: `web-${stage}`,
       sshKeyIds: [key.id],
       vpcIds: [vpc.id],
       enableIpv6: true,
     });
 
     return {
+      stage,
       instanceId: server.id,
       mainIp: server.mainIp,
     };
   }),
 );
 ```
+
+### Stages
+
+Same program, isolated environments (`dev_$USER`, `staging`, `prod`, `pr-42`):
+
+```bash
+bun alchemy deploy --stage staging
+bun alchemy destroy --stage pr-42
+```
+
+Vultr accounts are shared across stages — omit hard-coded `name` on SSH keys /
+startup scripts so Alchemy’s physical names stay unique. See
+[`docs/stages.md`](docs/stages.md).
 
 Service namespaces can also be imported directly (same pattern as `alchemy/AWS/S3`):
 
