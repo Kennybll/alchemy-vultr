@@ -1,5 +1,13 @@
-# Tokenless publish via npm Trusted Publishing (OIDC).
+# Changesets + npm Trusted Publishing (OIDC) + GitHub Releases.
 # https://docs.npmjs.com/trusted-publishers/
+# https://github.com/changesets/action
+#
+# Flow:
+#   1. Contributors add `.changeset/*.md` on feature PRs (`bun run changeset`)
+#   2. Push/merge to main → this workflow opens/updates a "Version Packages" PR
+#      (bumps version, writes CHANGELOG.md from those changesets)
+#   3. Merge the Version Packages PR → this workflow runs `changeset publish`,
+#      creates a GitHub Release (changelog as body), and publishes to npm via OIDC
 #
 # One-time npmjs.com setup (package Settings → Trusted Publisher):
 #   - Provider: GitHub Actions
@@ -7,36 +15,35 @@
 #   - Repository: alchemy-vultr
 #   - Workflow filename: publish.yml   ← filename only, must match exactly
 #   - Allowed actions: npm publish
-#
-# After a successful OIDC publish, revoke any old NPM_TOKEN and prefer
-# "Require two-factor authentication and disallow tokens" on the package.
-#
-# First-time packages: publish once manually (or create the package on npm)
-# so Trusted Publisher settings exist, then use this workflow.
 
 name: Publish
 
 on:
-  release:
-    types: [published]
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: "npm dist-tag (latest, next, etc.)"
-        required: false
-        default: "latest"
+  push:
+    branches:
+      - main
 
-permissions:
-  contents: read
-  id-token: write # required for OIDC → npm
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
 
 jobs:
-  publish:
+  release:
+    name: Release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # tags + GitHub Releases + version commits
+      pull-requests: write # Version Packages PR
+      id-token: write # npm OIDC trusted publishing
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          # Full history for @changesets/changelog-github (PR/commit links).
+          fetch-depth: 0
           submodules: recursive
 
       - name: Setup Bun
@@ -47,11 +54,8 @@ jobs:
       - name: Setup Node (OIDC publish)
         uses: actions/setup-node@v4
         with:
-          # Trusted publishing: npm ≥ 11.5.1, Node ≥ 22.14 (docs recommend 24).
           node-version: "24"
-          # Do NOT set registry-url here. setup-node would write
-          # //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}, and an empty
-          # token short-circuits the OIDC exchange (ENEEDAUTH).
+          # Omit registry-url — empty NODE_AUTH_TOKEN placeholders block OIDC.
           # https://github.com/npm/documentation/issues/1960
 
       - name: Ensure npm CLI supports trusted publishing
@@ -60,25 +64,16 @@ jobs:
       - name: Install
         run: bun install --frozen-lockfile
 
-      - name: Typecheck
-        run: bun run typecheck
-
-      - name: Lint
-        run: bun run lint
-
-      - name: Test
-        run: bun run test
-
-      - name: Build
-        run: bun run build
-
-      - name: Publish to npm
+      - name: Create Release Pull Request or Publish
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          version: bun run version-packages
+          publish: bun run release
+          title: "chore: version packages"
+          commit: "chore: version packages"
+          createGithubReleases: true
         env:
-          # Explicitly clear any token so npm uses OIDC, not classic auth.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Force OIDC — do not use a long-lived NPM_TOKEN.
           NODE_AUTH_TOKEN: ""
-        run: |
-          TAG="${{ github.event.inputs.tag || 'latest' }}"
-          npm config set registry https://registry.npmjs.org
-          # Provenance is automatic with trusted publishing; --access public
-          # is also in publishConfig but kept here for the first publish.
-          npm publish --access public --tag "$TAG"

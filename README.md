@@ -164,32 +164,36 @@ bun run test:live   # sets CI=1 so AuthProvider reads the env key
 
 ## Publishing
 
-GitHub Actions:
+Versioning and release notes use [Changesets](https://github.com/changesets/changesets). npm publish uses [Trusted Publishing (OIDC)](https://docs.npmjs.com/trusted-publishers/) — no `NPM_TOKEN` ([GAT deprecation](https://github.blog/changelog/2026-07-08-npm-install-time-security-and-gat-bypass2fa-deprecation/)).
 
-- `.github/workflows/ci.yml` — typecheck, lint, test, build on PRs/pushes
-- `.github/workflows/publish.yml` — **OIDC trusted publishing** on GitHub Release (no `NPM_TOKEN`)
+| Workflow | When | What |
+| --- | --- | --- |
+| `ci.yml` | PRs / pushes | typecheck, lint, test, build |
+| `publish.yml` | push to `main` | open/update **Version Packages** PR, or publish + **GitHub Release** |
 
-npm is deprecating 2FA-bypass publish tokens ([changelog](https://github.blog/changelog/2026-07-08-npm-install-time-security-and-gat-bypass2fa-deprecation/)); this repo publishes via [Trusted Publishing](https://docs.npmjs.com/trusted-publishers/).
+### Contributor flow
+
+```bash
+# On your feature branch, after meaningful changes:
+bun run changeset
+# pick patch | minor | major, write a short summary → commit the new .changeset/*.md
+```
+
+Merging to `main` with pending changesets opens a **Version Packages** PR that bumps `package.json`, updates `CHANGELOG.md` (with GitHub PR links), and deletes consumed changesets. Merging that PR:
+
+1. Publishes to npm via OIDC (`changeset publish`)
+2. Creates a **GitHub Release** whose body is the new changelog entry
+3. Pushes the `vX.Y.Z` git tag
 
 ### One-time npmjs.com setup
 
-1. Ensure the package exists on npm (first version can be a manual `npm publish` if needed).
+1. Ensure the package exists on npm (first version can be a manual `npm publish` if Trusted Publisher UI requires it).
 2. Package **Settings → Trusted Publisher → GitHub Actions**:
    - Organization/user: `Kennybll`
    - Repository: `alchemy-vultr`
    - Workflow filename: `publish.yml` (filename only — must match exactly)
    - Allowed actions: `npm publish`
 3. After a successful Actions publish, revoke any old automation tokens and prefer **Require two-factor authentication and disallow tokens** under Publishing access.
-
-### Release
-
-```bash
-npm version patch
-git push --follow-tags
-# create a GitHub Release for the tag to trigger publish.yml
-```
-
-Or run the **Publish** workflow manually (`workflow_dispatch`) with an optional dist-tag.
 
 ## License
 
