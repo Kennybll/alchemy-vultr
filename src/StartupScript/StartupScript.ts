@@ -41,9 +41,13 @@ export type StartupScript = Resource<
   Providers
 >;
 
+/** Startup-script names accept ≥255 chars live; keep headroom for stage. */
 const resolveName = (id: string, name: string | undefined) =>
   Effect.gen(function* () {
-    return name ?? (yield* createPhysicalName({ id, lowercase: true }));
+    return (
+      name ??
+      (yield* createPhysicalName({ id, lowercase: true, maxLength: 255 }))
+    );
   });
 
 /**

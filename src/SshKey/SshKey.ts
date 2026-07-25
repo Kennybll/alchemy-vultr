@@ -32,9 +32,17 @@ export type SshKey = Resource<
   Providers
 >;
 
+/**
+ * Vultr silently truncates SSH key names to 128 chars (live-probed).
+ * Keep createPhysicalName at that ceiling so the stage segment survives
+ * for normal stack ids; the truncation hash still disambiguates extremes.
+ */
 const resolveName = (id: string, name: string | undefined) =>
   Effect.gen(function* () {
-    return name ?? (yield* createPhysicalName({ id, lowercase: true }));
+    return (
+      name ??
+      (yield* createPhysicalName({ id, lowercase: true, maxLength: 128 }))
+    );
   });
 
 /**

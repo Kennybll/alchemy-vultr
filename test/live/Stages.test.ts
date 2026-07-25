@@ -67,8 +67,10 @@ const StageStack = Alchemy.Stack(
   }),
 );
 
+// Short test title → short scratch stack name, so the stage segment is not
+// truncated out of the 128-char Vultr SSH name ceiling.
 prStageTest.provider.skipIf(!hasApiKey)(
-  "omitted names include the configured alchemy stage",
+  "stage in physical name",
   (stack) =>
     Effect.gen(function* () {
       if (!authOk) {

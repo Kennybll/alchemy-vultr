@@ -48,7 +48,8 @@ Env credentials for Alchemy auth require `CI=1` (or an interactive
 | Topic | Docs / OpenAPI tendency | Live / provider notes |
 | --- | --- | --- |
 | List pagination | `meta.links.next` cursor URL | Confirmed; empty next is `""` not omitted |
-| SSH keys | CRUD under `/ssh-keys` | Create/list/get/patch/delete behaved as documented in live lifecycle |
+| SSH keys | CRUD under `/ssh-keys` | Create/list/get/patch/delete OK. **Names silently truncated to 128 chars** (129+ accepted with 201 but stored length 128). Provider `createPhysicalName` uses `maxLength: 128`. |
+| Startup script names | Often unspecified | Live accepts at least **255** chars; provider uses `maxLength: 255` |
 | Startup scripts — encoding | Some OpenAPI/clients accept or omit encoding details; prop docs often say “script contents” | **`POST /startup-scripts` requires base64.** Plain text → `400 Script must be base64 encoded`. Provider accepts plain `script` props and base64-encodes on create/update. GET returns `script` already base64. |
 | Startup scripts — wrap key | `/startup-scripts` | Wrap key `startup_script`; list key `startup_scripts` |
 | VPCs — update verb | Generated CRUD / many OpenAPI exports imply `PATCH /vpcs/{vpc-id}` (same as SSH keys) | **Live: `PATCH` → `405 Method not allowed. Must be one of: DELETE, GET, PUT`.** Provider uses **`PUT`** for VPC description updates. |

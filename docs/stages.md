@@ -23,13 +23,18 @@ Resolution order matches Alchemy: `--stage`, then `$STAGE`, then `dev_$USER`.
 
 | Pattern | Multi-stage safe? |
 | --- | --- |
-| Omit `name` (default physical name) | Yes — stage is in the name |
+| Omit `name` (default physical name) | Yes — stage is in the name (and in the truncation hash) |
 | Hard-coded `name: "deploy"` on every stage | **No** — stages collide / adopt each other |
 | Stage-scoped labels (`description: \`net-${stage}\``) | Yes for human labels; VPC descriptions are not unique-constrained |
 
 Prefer omitting `name` for account-global named resources (SSH keys, startup
 scripts). Branch on `yield* Alchemy.Stage` (or `yield* Alchemy.Stack`) for
 per-stage config.
+
+Keep stack names reasonably short: Vultr **SSH key names max out at 128
+chars** (silent truncate). Extremely long `{stack}-{id}-{stage}-…` prefixes
+can push the visible stage segment off the end; Alchemy’s truncation hash
+still keeps names unique across stages.
 
 ## Live coverage
 
