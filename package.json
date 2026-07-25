@@ -1,0 +1,71 @@
+{
+  "name": "alchemy-vultr",
+  "version": "0.1.0",
+  "description": "Alchemy Effect provider for Vultr — every Vultr primitive as typed Infrastructure-as-Effects resources",
+  "license": "MIT",
+  "author": "Kennybll",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kennybll/alchemy-vultr.git"
+  },
+  "homepage": "https://github.com/Kennybll/alchemy-vultr#readme",
+  "bugs": {
+    "url": "https://github.com/Kennybll/alchemy-vultr/issues"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "bun": "./src/index.ts",
+      "import": "./dist/index.js"
+    },
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "bun": "./src/*.ts",
+      "import": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "generate:resources": "bun scripts/generate-resources.ts",
+    "prepublishOnly": "bun run typecheck && bun run test && bun run build"
+  },
+  "keywords": [
+    "alchemy",
+    "vultr",
+    "effect",
+    "infrastructure-as-code",
+    "iac",
+    "cloud",
+    "provider"
+  ],
+  "peerDependencies": {
+    "alchemy": ">=2.0.0-beta.64",
+    "effect": ">=4.0.0-beta.100"
+  },
+  "dependencies": {
+    "alchemy": "2.0.0-beta.64",
+    "effect": "4.0.0-beta.100"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "typescript": "7.0.2",
+    "vitest": "^4.1.10"
+  },
+  "engines": {
+    "bun": ">=1.2.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

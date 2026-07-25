@@ -1,0 +1,100 @@
+import { describe, expect, it } from "vitest";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Redacted from "effect/Redacted";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import { fromApiKey } from "../src/Credentials.ts";
+import { makeClient, VultrClient, VultrClientLive } from "../src/internal/Client.ts";
+import { VultrApiError } from "../src/internal/Error.ts";
+import { compact, pickChanged, resourceId } from "../src/internal/defineResource.ts";
+
+describe("helpers", () => {
+  it("compacts undefined fields", () => {
+    expect(compact({ a: 1, b: undefined, c: "x" })).toEqual({ a: 1, c: "x" });
+  });
+
+  it("picks changed fields", () => {
+    expect(
+      pickChanged({ name: "new", label: "same" }, { name: "old", label: "same" }, [
+        "name",
+        "label",
+      ]),
+    ).toEqual({ name: "new" });
+  });
+
+  it("extracts resource ids", () => {
+    expect(resourceId("abc")).toBe("abc");
+    expect(resourceId({ id: "xyz" })).toBe("xyz");
+    expect(resourceId({ domain: "example.com" }, "domain")).toBe("example.com");
+  });
+});
+
+describe("VultrClient", () => {
+  it("builds an authenticated client service", async () => {
+    const calls: Array<{ url: string; auth?: string }> = [];
+    const http = {
+      execute: (request: { url: string; headers: Record<string, string> }) => {
+        calls.push({
+          url: request.url,
+          auth: request.headers.authorization ?? request.headers.Authorization,
+        });
+        return Effect.succeed({
+          status: 200,
+          text: Effect.succeed(JSON.stringify({ ssh_keys: [], meta: {} })),
+          json: Effect.succeed({ ssh_keys: [], meta: {} }),
+        });
+      },
+    };
+
+    const client = makeClient(
+      http as never,
+      Redacted.make("test-key"),
+      "https://api.vultr.com/v2",
+    );
+
+    const result = await Effect.runPromise(
+      client.get<{ ssh_keys: unknown[] }>("/ssh-keys"),
+    );
+    expect(result.ssh_keys).toEqual([]);
+    expect(calls[0]?.auth).toBe("Bearer test-key");
+    expect(calls[0]?.url).toContain("/ssh-keys");
+  });
+
+  it("maps non-2xx responses to VultrApiError", async () => {
+    const http = {
+      execute: () =>
+        Effect.succeed({
+          status: 404,
+          text: Effect.succeed(JSON.stringify({ error: "Not found" })),
+          json: Effect.succeed({ error: "Not found" }),
+        }),
+    };
+    const client = makeClient(
+      http as never,
+      Redacted.make("test-key"),
+      "https://api.vultr.com/v2",
+    );
+
+    const error = await Effect.runPromise(
+      client.get("/missing").pipe(Effect.flip),
+    );
+    expect(error).toBeInstanceOf(VultrApiError);
+    expect((error as VultrApiError).status).toBe(404);
+  });
+
+  it("provides a live layer over credentials", async () => {
+    const layer = VultrClientLive.pipe(
+      Layer.provide(fromApiKey("layer-key")),
+      Layer.provide(FetchHttpClient.layer),
+    );
+
+    const program = Effect.gen(function* () {
+      const client = yield* yield* VultrClient;
+      return client.baseUrl;
+    }).pipe(Effect.provide(layer));
+
+    await expect(Effect.runPromise(program)).resolves.toBe(
+      "https://api.vultr.com/v2",
+    );
+  });
+});
