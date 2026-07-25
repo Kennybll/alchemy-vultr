@@ -80,19 +80,19 @@ Include `Vultr.providers()` in your stack. Every resource below is registered.
 `Instance`, `InstanceIpv4`, `InstanceTemplate`, `BareMetal`, `Snapshot`, `SnapshotFromUrl`, `Iso`, `ReservedIp`, `ReverseIpv4`, `ReverseIpv6`
 
 ### Networking
-`Vpc`, `NatGateway`, `FirewallGroup`, `FirewallRule`, `LoadBalancer`
+`Vpc`, `NatGateway`, `NatGatewayFirewallRule`, `NatGatewayPortForwardingRule`, `FirewallGroup`, `FirewallRule`, `LoadBalancer`
 
 ### Kubernetes
 `Kubernetes`, `KubernetesNodePool`
 
 ### Data
-`BlockStorage`, `ObjectStorage`, `ObjectStorageBucket`, `VirtualFileSystemStorage`, `Database`, `DatabaseUser`, `DatabaseDb`, `DatabaseReplica`, `DatabaseConnectionPool`, `DatabaseTopic`, `DatabaseQuota`
+`BlockStorage`, `BlockStorageSnapshot`, `ObjectStorage`, `ObjectStorageBucket`, `VirtualFileSystemStorage`, `Database`, `DatabaseUser`, `DatabaseDb`, `DatabaseReplica`, `DatabaseConnectionPool`, `DatabaseTopic`, `DatabaseQuota`, `DatabaseConnector`
 
 ### DNS & CDN
 `DnsDomain`, `DnsRecord`, `CdnPullZone`, `CdnPushZone`
 
 ### Platform
-`SshKey`, `StartupScript`, `User`, `ApiKey`, `ContainerRegistry`, `Inference`, `Organization`, `OrganizationGroup`, `OrganizationPolicy`, `OrganizationRole`, `OrganizationRoleTrust`, `OidcIssuer`, `OidcProvider`
+`SshKey`, `StartupScript`, `User`, `ApiKey`, `ContainerRegistry`, `Inference`, `Organization`, `OrganizationGroup`, `OrganizationInvitation`, `OrganizationPolicy`, `OrganizationRole`, `OrganizationRoleTrust`, `OidcIssuer`, `OidcProvider`, `OidcToken`
 
 ### Catalog helpers
 
