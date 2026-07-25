@@ -83,7 +83,11 @@ const resources: ResourceDef[] = [
     description: "A startup script executed on first boot of an instance.",
     fields: [
       { name: "name", tsType: "string" },
-      { name: "script", tsType: "string", doc: "Script contents (base64 or plain text depending on type)." },
+      {
+        name: "script",
+        tsType: "string",
+        doc: "Plain-text script body (provider base64-encodes for the API).",
+      },
       { name: "type", tsType: '"boot" | "pxe"', optional: true, replace: true },
       { name: "id", tsType: "string", attribute: true },
       { name: "dateCreated", tsType: "string", attribute: true },
@@ -98,6 +102,8 @@ const resources: ResourceDef[] = [
     listKey: "vpcs",
     wrapKey: "vpc",
     description: "A Vultr VPC network.",
+    // Live: PATCH /vpcs/{id} → 405; update must be PUT.
+    updateMethod: "PUT",
     fields: [
       { name: "region", tsType: "string", replace: true },
       { name: "description", tsType: "string", optional: true },

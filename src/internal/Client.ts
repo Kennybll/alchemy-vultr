@@ -10,8 +10,10 @@ import {
   VultrApiError,
   VultrConflict,
   VultrDecodeError,
+  VultrInvalidToken,
   VultrNotFound,
   VultrRateLimited,
+  VultrUnauthorizedIp,
   VultrUnavailable,
   type VultrError,
 } from "./Error.ts";
@@ -115,6 +117,22 @@ const classifyHttpError = (input: {
   }
   if (status === 429) {
     return new VultrRateLimited({ method, path, status, message, body });
+  }
+  if (status === 401) {
+    const ipMatch = message.match(/Unauthorized IP address:\s*(\S+)/i);
+    if (ipMatch) {
+      return new VultrUnauthorizedIp({
+        method,
+        path,
+        status,
+        message,
+        ip: ipMatch[1],
+        body,
+      });
+    }
+    if (/invalid api token/i.test(message)) {
+      return new VultrInvalidToken({ method, path, status, message, body });
+    }
   }
   if (status === 0 || status >= 500) {
     return new VultrUnavailable({ method, path, status, message, body });

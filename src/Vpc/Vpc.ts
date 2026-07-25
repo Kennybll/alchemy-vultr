@@ -32,9 +32,8 @@ const defined = defineCrudResource<
   listKey: "vpcs",
   wrapKey: "vpc",
   getPath: (id) => `/vpcs/${id}`,
-  
-  
-  
+  // Live API: PATCH → 405; only DELETE, GET, PUT are allowed.
+  updateMethod: "PUT",
   replaceOnChange: ["region", "v4Subnet", "v4SubnetMask"],
   toCreateBody: (props) =>
     compact({

@@ -12,8 +12,10 @@ import {
 } from "../src/internal/Client.ts";
 import {
   VultrApiError,
+  VultrInvalidToken,
   VultrNotFound,
   VultrRateLimited,
+  VultrUnauthorizedIp,
 } from "../src/internal/Error.ts";
 import { compact, pickChanged, resourceId } from "../src/internal/defineResource.ts";
 import { listAcrossParents } from "../src/internal/listAcross.ts";
@@ -117,6 +119,52 @@ describe("VultrClient", () => {
       client.get("/throttled").pipe(Effect.flip),
     );
     expect(error).toBeInstanceOf(VultrRateLimited);
+  });
+
+  it("maps unauthorized IP and invalid token 401s", async () => {
+    const ipHttp = {
+      execute: () =>
+        Effect.succeed({
+          status: 401,
+          text: Effect.succeed(
+            JSON.stringify({
+              error: "Unauthorized IP address: 1.2.3.4",
+              status: 401,
+            }),
+          ),
+          json: Effect.succeed({}),
+        }),
+    };
+    const ipClient = makeClient(
+      ipHttp as never,
+      Redacted.make("test-key"),
+      "https://api.vultr.com/v2",
+    );
+    const ipError = await Effect.runPromise(
+      ipClient.get("/account").pipe(Effect.flip),
+    );
+    expect(ipError).toBeInstanceOf(VultrUnauthorizedIp);
+    expect((ipError as VultrUnauthorizedIp).ip).toBe("1.2.3.4");
+
+    const tokenHttp = {
+      execute: () =>
+        Effect.succeed({
+          status: 401,
+          text: Effect.succeed(
+            JSON.stringify({ error: "Invalid API token.", status: 401 }),
+          ),
+          json: Effect.succeed({}),
+        }),
+    };
+    const tokenClient = makeClient(
+      tokenHttp as never,
+      Redacted.make("bad"),
+      "https://api.vultr.com/v2",
+    );
+    const tokenError = await Effect.runPromise(
+      tokenClient.get("/account").pipe(Effect.flip),
+    );
+    expect(tokenError).toBeInstanceOf(VultrInvalidToken);
   });
 
   it("maps other non-2xx responses to VultrApiError", async () => {

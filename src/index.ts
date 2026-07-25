@@ -42,8 +42,10 @@ export {
   VultrApiError,
   VultrConflict,
   VultrDecodeError,
+  VultrInvalidToken,
   VultrNotFound,
   VultrRateLimited,
+  VultrUnauthorizedIp,
   VultrUnavailable,
 } from "./internal/Error.ts";
 export type { VultrError } from "./internal/Error.ts";

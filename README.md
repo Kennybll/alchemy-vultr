@@ -135,11 +135,13 @@ bun run test
 bun run build
 ```
 
-Live provider tests (requires a Vultr API key; skips when unset):
+Live provider tests (factory shape: deploy → out-of-band verify → update → destroy).
+Requires `VULTR_API_KEY`. If the key has IP allowlisting, allow this runner’s
+egress IP or disable the allowlist — see `docs/api-discrepancies.md`.
 
 ```bash
 export VULTR_API_KEY=...
-bun run test:live
+bun run test:live   # sets CI=1 so AuthProvider reads the env key
 ```
 
 Regenerate the CRUD resource modules from the catalog:

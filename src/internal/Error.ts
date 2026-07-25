@@ -13,6 +13,31 @@ export class VultrApiError extends Data.TaggedError("VultrApiError")<{
 }> {}
 
 /**
+ * API key is valid but this egress IP is not on the account allowlist.
+ * Live shape: `{ "error": "Unauthorized IP address: 1.2.3.4", "status": 401 }`.
+ */
+export class VultrUnauthorizedIp extends Data.TaggedError("VultrUnauthorizedIp")<{
+  readonly method: string;
+  readonly path: string;
+  readonly status: number;
+  readonly message: string;
+  readonly ip?: string;
+  readonly body?: unknown;
+}> {}
+
+/**
+ * Missing/invalid API token.
+ * Live shape: `{ "error": "Invalid API token.", "status": 401 }`.
+ */
+export class VultrInvalidToken extends Data.TaggedError("VultrInvalidToken")<{
+  readonly method: string;
+  readonly path: string;
+  readonly status: number;
+  readonly message: string;
+  readonly body?: unknown;
+}> {}
+
+/**
  * Resource or path was not found. Delete/read treat this as success / missing.
  */
 export class VultrNotFound extends Data.TaggedError("VultrNotFound")<{
@@ -69,6 +94,8 @@ export class VultrDecodeError extends Data.TaggedError("VultrDecodeError")<{
 
 export type VultrError =
   | VultrApiError
+  | VultrUnauthorizedIp
+  | VultrInvalidToken
   | VultrNotFound
   | VultrConflict
   | VultrRateLimited

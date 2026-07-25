@@ -10,13 +10,20 @@ import {
 } from "../internal/defineResource.ts";
 import type { Providers } from "../Providers.ts";
 
+/** UTF-8 script body → base64 for Vultr's wire format. */
+const encodeScript = (script: string): string =>
+  Buffer.from(script, "utf8").toString("base64");
+
 export interface StartupScriptProps {
   /**
    * Script name. If omitted, a unique name is generated with
    * {@link createPhysicalName}.
    */
   name?: string;
-  /** Script contents (base64 or plain text depending on type). */
+  /**
+   * Plain-text script body. The provider base64-encodes this for
+   * `POST`/`PATCH` — Vultr rejects unencoded scripts with HTTP 400.
+   */
   script: string;
   type?: "boot" | "pxe";
 }
@@ -111,12 +118,14 @@ export const StartupScriptProvider = () =>
           }
         }
 
+        const scriptB64 = encodeScript(news.script);
+
         if (!live) {
           const created = yield* client
             .post<JsonObject>("/startup-scripts", {
               body: compact({
                 name,
-                script: news.script,
+                script: scriptB64,
                 type: news.type,
               }),
             })
@@ -130,8 +139,9 @@ export const StartupScriptProvider = () =>
             );
           live = (created.startup_script ?? created) as JsonObject;
         } else {
+          // Live `script` is base64; compare encoded desired to avoid churn.
           const body = pickChanged(
-            { name, script: news.script },
+            { name, script: scriptB64 },
             live,
             ["name", "script"],
           );
