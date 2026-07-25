@@ -8,6 +8,7 @@ import {
   type JsonObject,
   pickChanged,
 } from "./defineResource.ts";
+import { listAcrossParents } from "./listAcross.ts";
 
 export interface NestedCrudConfig<
   Type extends string,
@@ -24,6 +25,18 @@ export interface NestedCrudConfig<
   readonly resolveParentId: (props: Props) => string;
   readonly listPath: (parentId: string) => string;
   readonly getPath: (parentId: string, id: string) => string;
+  /**
+   * When set, `list` fans out across every parent (required for nuke).
+   * Omit for account-scoped child lists where `listPath` ignores the parent
+   * (e.g. block storage snapshots).
+   */
+  readonly parentList?: {
+    readonly path: string;
+    readonly key: string;
+    readonly idField?: string;
+  };
+  /** For global lists: which live field holds the parent id. */
+  readonly parentIdFromItem?: string;
   readonly replaceOnChange?: ReadonlyArray<keyof Props & string>;
   readonly toCreateBody: (props: Props) => JsonObject;
   readonly toUpdateBody?: (
@@ -37,10 +50,18 @@ export interface NestedCrudConfig<
   ) => Attributes;
   readonly updateMethod?: "PATCH" | "PUT" | "POST";
   readonly immutable?: boolean;
+  readonly nuke?: {
+    readonly singleton?: boolean;
+    readonly skip?: boolean;
+  };
 }
 
 /**
  * Define a nested Vultr CRUD resource (child of another resource).
+ *
+ * Implements the provider contract from
+ * https://alchemy.run/infrastructure-as-code/provider/ —
+ * `reconcile` / `delete` / `list` required; `diff` / `read` for plan + adoption.
  */
 export const defineNestedCrudResource = <
   Type extends string,
@@ -59,7 +80,34 @@ export const defineNestedCrudResource = <
       ResourceTag,
       ResourceTag.Provider.of({
         stables: [...config.stables] as string[],
-        list: () => Effect.succeed([]),
+        ...(config.nuke ? { nuke: config.nuke } : {}),
+        list: Effect.fn(function* () {
+          if (config.parentList) {
+            return yield* listAcrossParents({
+              parentPath: config.parentList.path,
+              parentKey: config.parentList.key,
+              parentIdField: config.parentList.idField,
+              childPath: config.listPath,
+              childKey: config.listKey,
+              map: (item, parentId) =>
+                config.toAttributes(item, parentId, {} as Props),
+            });
+          }
+          // Account-scoped nested list (path independent of parent).
+          const client = yield* yield* VultrClient;
+          const items = yield* client.listAll<JsonObject>(
+            config.listPath(""),
+            config.listKey,
+          );
+          const parentField = config.parentIdFromItem ?? "id";
+          return items.map((item) =>
+            config.toAttributes(
+              item,
+              String(item[parentField] ?? ""),
+              {} as Props,
+            ),
+          );
+        }),
         diff: Effect.fn(function* ({ news, olds }: any) {
           if (!isResolved(news)) return undefined;
           if (config.immutable) return { action: "replace" as const };
@@ -88,6 +136,7 @@ export const defineNestedCrudResource = <
           return config.toAttributes(live, parentId, {} as Props);
         }),
         reconcile: Effect.fn(function* ({ news, output }: any) {
+          // Observe → ensure → sync (single flow for create/update/adoption).
           const client = yield* yield* VultrClient;
           const props = news as Props;
           const parentId = config.resolveParentId(props);
@@ -108,10 +157,18 @@ export const defineNestedCrudResource = <
           }
 
           if (!live) {
-            const created = yield* client.post<JsonObject>(
-              config.listPath(parentId),
-              { body: config.toCreateBody(props) },
-            );
+            const created = yield* client
+              .post<JsonObject>(config.listPath(parentId), {
+                body: config.toCreateBody(props),
+              })
+              .pipe(
+                Effect.catchTag("VultrConflict", (error) => {
+                  if (!existingId) return Effect.fail(error);
+                  return client.get<JsonObject>(
+                    config.getPath(parentId, existingId),
+                  );
+                }),
+              );
             live = (created[config.wrapKey] ?? created) as JsonObject;
           } else if (config.toUpdateBody && !config.immutable) {
             const body = config.toUpdateBody(props, live);

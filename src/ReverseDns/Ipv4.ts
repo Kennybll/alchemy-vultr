@@ -2,8 +2,9 @@ import { Resource } from "alchemy";
 import { isResolved } from "alchemy/Diff";
 import * as Provider from "alchemy/Provider";
 import * as Effect from "effect/Effect";
-import { VultrClient } from "../internal/Client.ts";
-import { resourceId } from "../internal/defineResource.ts";
+import { catchNotFound, VultrClient } from "../internal/Client.ts";
+import { resourceId, type JsonObject } from "../internal/defineResource.ts";
+import { listAcrossParents } from "../internal/listAcross.ts";
 import type { Providers } from "../Providers.ts";
 
 export interface ReverseIpv4Props {
@@ -20,7 +21,14 @@ export type Ipv4 = Resource<
   Providers
 >;
 
-/** Reverse DNS for an instance IPv4 address. @resource */
+/**
+ * Reverse DNS for an instance IPv4 address.
+ *
+ * Delete resets the PTR to Vultr's default (singleton-style config), so nuke
+ * treats this as `nuke.singleton`.
+ *
+ * @resource
+ */
 export const Ipv4 = Resource<Ipv4>("Vultr.ReverseDns.Ipv4", {
   aliases: ["Vultr.ReverseIpv4"],
 });
@@ -30,7 +38,20 @@ export const Ipv4Provider = () =>
     Ipv4,
     Ipv4.Provider.of({
       stables: ["id"],
-      list: () => Effect.succeed([]),
+      nuke: { singleton: true },
+      list: () =>
+        listAcrossParents({
+          parentPath: "/instances",
+          parentKey: "instances",
+          childPath: (instanceId) => `/instances/${instanceId}/ipv4`,
+          childKey: "ipv4s",
+          map: (live, instanceId) => ({
+            id: `${instanceId}:${String(live.ip ?? "")}`,
+            instanceId,
+            ip: String(live.ip ?? ""),
+            reverse: String(live.reverse ?? ""),
+          }),
+        }),
       diff: Effect.fn(function* ({ news, olds }) {
         if (!isResolved(news)) return undefined;
         if (
@@ -42,8 +63,23 @@ export const Ipv4Provider = () =>
         return undefined;
       }),
       read: Effect.fn(function* ({ output }) {
-        if (!output?.ip) return undefined;
-        return output;
+        if (!output?.ip || !output.instanceId) return undefined;
+        const client = yield* yield* VultrClient;
+        const items = yield* catchNotFound(
+          client.listAll<JsonObject>(
+            `/instances/${output.instanceId}/ipv4`,
+            "ipv4s",
+          ),
+        );
+        if (!items) return undefined;
+        const live = items.find((item) => item.ip === output.ip);
+        if (!live) return undefined;
+        return {
+          id: `${output.instanceId}:${String(live.ip ?? "")}`,
+          instanceId: output.instanceId,
+          ip: String(live.ip ?? ""),
+          reverse: String(live.reverse ?? ""),
+        };
       }),
       reconcile: Effect.fn(function* ({ news }) {
         const client = yield* yield* VultrClient;
@@ -60,10 +96,13 @@ export const Ipv4Provider = () =>
       }),
       delete: Effect.fn(function* ({ output }) {
         const client = yield* yield* VultrClient;
-        yield* client.post(
-          `/instances/${output.instanceId}/ipv4/reverse/default`,
-          { body: { ip: output.ip } },
-        ).pipe(Effect.catch(() => Effect.void));
+        // Reset to Vultr default PTR — treat not-found as already reset.
+        yield* catchNotFound(
+          client.post(
+            `/instances/${output.instanceId}/ipv4/reverse/default`,
+            { body: { ip: output.ip } },
+          ),
+        );
       }),
     }),
   );

@@ -30,6 +30,7 @@ const defined = defineNestedCrudResource<
   parentIdAttribute: "vpcId",
   wrapKey: "nat_gateway",
   listKey: "nat_gateways",
+  parentList: { path: "/vpcs", key: "vpcs" },
   resolveParentId: (props) => resourceId(props.vpc),
   listPath: (vpcId) => `/vpcs/${vpcId}/nat-gateways`,
   getPath: (vpcId, id) => `/vpcs/${vpcId}/nat-gateways/${id}`,

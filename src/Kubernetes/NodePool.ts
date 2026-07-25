@@ -9,6 +9,7 @@ import {
   resourceId,
   type JsonObject,
 } from "../internal/defineResource.ts";
+import { listAcrossParents } from "../internal/listAcross.ts";
 import type { Providers } from "../Providers.ts";
 
 export interface KubernetesNodePoolProps {
@@ -58,7 +59,23 @@ export const NodePoolProvider = () =>
     NodePool,
     NodePool.Provider.of({
       stables: ["id"],
-      list: () => Effect.succeed([]),
+      list: () =>
+        listAcrossParents({
+          parentPath: "/kubernetes/clusters",
+          parentKey: "vke_clusters",
+          childPath: (clusterId) =>
+            `/kubernetes/clusters/${clusterId}/node-pools`,
+          childKey: "node_pools",
+          map: (live, clusterId) => ({
+            id: String(live.id ?? ""),
+            clusterId,
+            label: String(live.label ?? ""),
+            plan: String(live.plan ?? ""),
+            status: String(live.status ?? ""),
+            nodeQuantity: Number(live.node_quantity ?? 0),
+            dateCreated: String(live.date_created ?? ""),
+          }),
+        }),
       diff: Effect.fn(function* ({ news, olds }) {
         if (!isResolved(news)) return undefined;
         if (

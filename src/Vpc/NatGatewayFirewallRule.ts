@@ -8,6 +8,7 @@ import {
   resourceId,
   type JsonObject,
 } from "../internal/defineResource.ts";
+import { listAcrossGrandparents } from "../internal/listAcross.ts";
 import type { Providers } from "../Providers.ts";
 
 export interface NatGatewayFirewallRuleProps {
@@ -40,7 +41,21 @@ export const NatGatewayFirewallRuleProvider = () =>
     NatGatewayFirewallRule,
     NatGatewayFirewallRule.Provider.of({
       stables: ["id"],
-      list: () => Effect.succeed([]),
+      list: () =>
+        listAcrossGrandparents({
+          grandparentPath: "/vpcs",
+          grandparentKey: "vpcs",
+          parentPath: (vpcId) => `/vpcs/${vpcId}/nat-gateways`,
+          parentKey: "nat_gateways",
+          childPath: (vpcId, natGatewayId) =>
+            `/vpcs/${vpcId}/nat-gateways/${natGatewayId}/firewall-rules`,
+          childKey: "firewall_rules",
+          map: (live, vpcId, natGatewayId) => ({
+            id: String(live.id ?? ""),
+            vpcId,
+            natGatewayId,
+          }),
+        }),
       diff: Effect.fn(function* ({ news, olds }) {
         if (!isResolved(news)) return undefined;
         if (

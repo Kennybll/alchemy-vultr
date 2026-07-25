@@ -9,6 +9,7 @@ import {
   resourceId,
   type JsonObject,
 } from "../internal/defineResource.ts";
+import { listAcrossParents } from "../internal/listAcross.ts";
 import type { Providers } from "../Providers.ts";
 
 export interface DnsRecordProps {
@@ -54,7 +55,23 @@ export const RecordProvider = () =>
     Record,
     Record.Provider.of({
       stables: ["id"],
-      list: () => Effect.succeed([]),
+      list: () =>
+        listAcrossParents({
+          parentPath: "/domains",
+          parentKey: "domains",
+          parentIdField: "domain",
+          childPath: (domain) => `/domains/${domain}/records`,
+          childKey: "records",
+          map: (live, domain) => ({
+            id: String(live.id ?? ""),
+            domain,
+            name: String(live.name ?? ""),
+            type: String(live.type ?? ""),
+            data: String(live.data ?? ""),
+            ttl: Number(live.ttl ?? 0),
+            priority: Number(live.priority ?? 0),
+          }),
+        }),
       diff: Effect.fn(function* ({ news, olds }) {
         if (!isResolved(news)) return undefined;
         if (

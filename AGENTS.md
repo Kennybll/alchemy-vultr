@@ -20,6 +20,22 @@ processes/Vultr/     # factory catalog / order book
 
 Type IDs are `Vultr.<Service>.<Resource>` (e.g. `Vultr.Instance.Instance`). Root exports are namespaced: `export * as Instance from "./Instance"`.
 
+## Provider contract
+
+Follow [Providers](https://alchemy.run/infrastructure-as-code/provider/) and
+[Custom Provider](https://alchemy.run/infrastructure-as-code/custom-provider/):
+
+| Op | Required | Notes |
+| --- | --- | --- |
+| `reconcile` | yes | observe → ensure → sync → return; greenfield / update / adoption |
+| `delete` | yes | idempotent; `VultrNotFound` = success |
+| `list` | yes | same attrs as `read`; paginate exhaustively (use `listAcrossParents`); `[]` only when no enum API |
+| `diff` | optional | guard `isResolved(news)`; `replace` / `update` / `noop` / `undefined` |
+| `read` | recommended | `undefined` \| attrs \| `Unowned(attrs)`; enables recovery + adoption |
+| `nuke` | optional | `{ singleton: true }` or `{ skip: true }` when delete isn't a normal destroy |
+
+Bundle via `Provider.ProviderCollection` + `providers()` Layer; credentials are a lazy `Context.Service<Effect<…>>` (double-yield). Mix clouds with `Layer.mergeAll(Vultr.providers(), …)`.
+
 ## Reconciler doctrine
 
 `reconcile` is one observe → ensure → sync flow. Do **not** branch `if (output === undefined) create else update`.

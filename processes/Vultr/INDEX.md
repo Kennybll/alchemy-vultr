@@ -2,7 +2,7 @@
 
 Order book for the Vultr Alchemy provider. Statuses: `implemented` | `partial` | `missing` | `out-of-scope`.
 
-Aligned with the [Cloudflare resource factory](https://alchemy.run/blog/2026-07-02-cloudflare-resource-factory) flywheel and [beta.64](https://alchemy.run/blog/2026-07-22-beta-64/) conventions.
+Aligned with the [Cloudflare resource factory](https://alchemy.run/blog/2026-07-02-cloudflare-resource-factory) flywheel, [beta.64](https://alchemy.run/blog/2026-07-22-beta-64/), and the [Providers](https://alchemy.run/infrastructure-as-code/provider/) / [Custom Provider](https://alchemy.run/infrastructure-as-code/custom-provider/) contracts (`reconcile` / `delete` / `list` / `diff` / `read` / nuke).
 
 | Service | Resource | Type ID | Status | Live test | Notes |
 | --- | --- | --- | --- | --- | --- |

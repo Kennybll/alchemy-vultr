@@ -66,6 +66,17 @@ import * as Instance from "alchemy-vultr/Instance";
 import * as Vpc from "alchemy-vultr/Vpc";
 ```
 
+Mix with another Alchemy cloud via `Layer.mergeAll`:
+
+```typescript
+import * as Layer from "effect/Layer";
+import * as Cloudflare from "alchemy/Cloudflare";
+
+providers: Layer.mergeAll(Vultr.providers(), Cloudflare.providers()),
+```
+
+See `examples/basic.ts` and Alchemy’s [Custom Provider](https://alchemy.run/infrastructure-as-code/custom-provider/) / [Providers](https://alchemy.run/infrastructure-as-code/provider/) guides for the full lifecycle contract (`reconcile`, `delete`, `list`, `diff`, `read`, nuke).
+
 ```bash
 export VULTR_API_KEY=...
 bun alchemy deploy

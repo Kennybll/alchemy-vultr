@@ -8,6 +8,7 @@ import {
   resourceId,
   type JsonObject,
 } from "../internal/defineResource.ts";
+import { listAcrossParents } from "../internal/listAcross.ts";
 import type { Providers } from "../Providers.ts";
 
 export interface FirewallRuleProps {
@@ -50,7 +51,20 @@ export const RuleProvider = () =>
     Rule,
     Rule.Provider.of({
       stables: ["id"],
-      list: () => Effect.succeed([]),
+      list: () =>
+        listAcrossParents({
+          parentPath: "/firewalls",
+          parentKey: "firewall_groups",
+          childPath: (groupId) => `/firewalls/${groupId}/rules`,
+          childKey: "firewall_rules",
+          map: (live, firewallGroupId) => ({
+            id: String(live.id ?? ""),
+            firewallGroupId,
+            action: String(live.action ?? ""),
+            port: String(live.port ?? ""),
+            notes: String(live.notes ?? ""),
+          }),
+        }),
       diff: Effect.fn(function* ({ news, olds }) {
         if (!isResolved(news)) return undefined;
         const groupChanged =

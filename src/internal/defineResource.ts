@@ -37,6 +37,11 @@ export interface CrudResourceConfig<
 /**
  * Define a standard Vultr CRUD resource + provider Layer.
  *
+ * Implements the provider contract from
+ * https://alchemy.run/infrastructure-as-code/provider/ —
+ * required `reconcile` / `delete` / `list`, plus `diff` / `read` for plan,
+ * state recovery, and adoption. Reconcile is observe → ensure → sync.
+ *
  * Alchemy's Resource generics are intentionally strict; this helper uses a
  * thin cast boundary so call sites stay fully typed while the shared
  * lifecycle implementation remains Effect-idiomatic.

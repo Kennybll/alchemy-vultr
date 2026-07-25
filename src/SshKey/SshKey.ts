@@ -85,18 +85,30 @@ export const SshKeyProvider = () =>
         }
         return undefined;
       }),
-      read: Effect.fn(function* ({ output }) {
-        if (!output?.id) return undefined;
+      read: Effect.fn(function* ({ id, output, olds }) {
         const client = yield* yield* VultrClient;
-        const response = yield* catchNotFound(
-          client.get<JsonObject>(`/ssh-keys/${output.id}`),
-        );
-        if (!response) return undefined;
-        const live = (response.ssh_key ?? response) as JsonObject;
+        // Prefer cached id (state recovery); otherwise adopt by physical name.
+        if (output?.id) {
+          const response = yield* catchNotFound(
+            client.get<JsonObject>(`/ssh-keys/${output.id}`),
+          );
+          if (!response) return undefined;
+          const live = (response.ssh_key ?? response) as JsonObject;
+          return {
+            id: String(live.id ?? ""),
+            name: String(live.name ?? ""),
+            dateCreated: String(live.date_created ?? ""),
+          };
+        }
+        const name = yield* resolveName(id, olds?.name);
+        const items = yield* client.listAll<JsonObject>("/ssh-keys", "ssh_keys");
+        const match = items.find((item) => String(item.name ?? "") === name);
+        if (!match) return undefined;
+        // Vultr SSH keys have no ownership tags — plain attrs = silent adopt.
         return {
-          id: String(live.id ?? ""),
-          name: String(live.name ?? ""),
-          dateCreated: String(live.date_created ?? ""),
+          id: String(match.id ?? ""),
+          name: String(match.name ?? ""),
+          dateCreated: String(match.date_created ?? ""),
         };
       }),
       reconcile: Effect.fn(function* ({ id, news, output }) {
@@ -111,6 +123,14 @@ export const SshKeyProvider = () =>
           if (response) {
             live = (response.ssh_key ?? response) as JsonObject;
           }
+        }
+        if (!live) {
+          const items = yield* client.listAll<JsonObject>(
+            "/ssh-keys",
+            "ssh_keys",
+          );
+          const match = items.find((item) => String(item.name ?? "") === name);
+          if (match) live = match;
         }
 
         if (!live) {

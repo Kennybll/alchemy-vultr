@@ -34,6 +34,7 @@ const defined = defineNestedCrudResource<
   parentIdAttribute: "databaseId",
   wrapKey: "user",
   listKey: "users",
+  parentList: { path: "/databases", key: "databases" },
   resolveParentId: (props) => resourceId(props.database),
   listPath: (databaseId) => `/databases/${databaseId}/users`,
   getPath: (databaseId, id) => `/databases/${databaseId}/users/${id}`,

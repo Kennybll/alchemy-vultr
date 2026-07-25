@@ -8,6 +8,7 @@ import {
   resourceId,
   type JsonObject,
 } from "../internal/defineResource.ts";
+import { listAcrossParents } from "../internal/listAcross.ts";
 import type { Providers } from "../Providers.ts";
 
 export interface ObjectStorageBucketProps {
@@ -67,7 +68,22 @@ export const BucketProvider = () =>
     Bucket,
     Bucket.Provider.of({
       stables: ["id"],
-      list: () => Effect.succeed([]),
+      list: () =>
+        listAcrossParents({
+          parentPath: "/object-storage",
+          parentKey: "object_storages",
+          childPath: (objectStorageId) =>
+            `/object-storage/${objectStorageId}/buckets`,
+          childKey: "buckets",
+          map: (live, objectStorageId) => {
+            const name = String(live.name ?? "");
+            return {
+              id: `${objectStorageId}:${name}`,
+              objectStorageId,
+              name,
+            };
+          },
+        }),
       diff: Effect.fn(function* ({ news, olds }) {
         if (!isResolved(news)) return undefined;
         if (

@@ -31,6 +31,7 @@ const defined = defineNestedCrudResource<
   parentIdAttribute: "blockStorageId",
   wrapKey: "snapshot",
   listKey: "snapshots",
+  parentIdFromItem: "block_id",
   resolveParentId: (props) => resourceId(props.blockStorage),
   listPath: () => `/blocks/snapshots`,
   getPath: (_parent, id) => `/blocks/snapshots/${id}`,

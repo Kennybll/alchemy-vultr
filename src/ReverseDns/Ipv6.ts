@@ -4,6 +4,7 @@ import * as Provider from "alchemy/Provider";
 import * as Effect from "effect/Effect";
 import { catchNotFound, VultrClient } from "../internal/Client.ts";
 import { resourceId } from "../internal/defineResource.ts";
+import { listAcrossParents } from "../internal/listAcross.ts";
 import type { Providers } from "../Providers.ts";
 
 export interface ReverseIpv6Props {
@@ -30,7 +31,19 @@ export const Ipv6Provider = () =>
     Ipv6,
     Ipv6.Provider.of({
       stables: ["id"],
-      list: () => Effect.succeed([]),
+      list: () =>
+        listAcrossParents({
+          parentPath: "/instances",
+          parentKey: "instances",
+          childPath: (instanceId) => `/instances/${instanceId}/ipv6/reverse`,
+          childKey: "reverse_ipv6s",
+          map: (live, instanceId) => ({
+            id: `${instanceId}:${String(live.ip ?? "")}`,
+            instanceId,
+            ip: String(live.ip ?? ""),
+            reverse: String(live.reverse ?? ""),
+          }),
+        }),
       diff: Effect.fn(function* ({ news, olds }) {
         if (!isResolved(news)) return undefined;
         if (
@@ -44,12 +57,12 @@ export const Ipv6Provider = () =>
       read: Effect.fn(function* ({ output }) {
         if (!output?.ip || !output.instanceId) return undefined;
         const client = yield* yield* VultrClient;
-        const items = yield* client
-          .get<{ reverse_ipv6s?: Array<{ ip: string; reverse: string }> }>(
-            `/instances/${output.instanceId}/ipv6/reverse`,
-          )
-          .pipe(Effect.catch(() => Effect.succeed({ reverse_ipv6s: [] })));
-        const live = (items.reverse_ipv6s ?? []).find(
+        const items = yield* catchNotFound(
+          client.get<{
+            reverse_ipv6s?: Array<{ ip: string; reverse: string }>;
+          }>(`/instances/${output.instanceId}/ipv6/reverse`),
+        );
+        const live = (items?.reverse_ipv6s ?? []).find(
           (item) => item.ip === output.ip,
         );
         if (!live) return undefined;

@@ -4,6 +4,7 @@ import * as Provider from "alchemy/Provider";
 import * as Effect from "effect/Effect";
 import { catchNotFound, VultrClient } from "../internal/Client.ts";
 import { resourceId, type JsonObject } from "../internal/defineResource.ts";
+import { listAcrossParents } from "../internal/listAcross.ts";
 import type { Providers } from "../Providers.ts";
 
 export interface InstanceIpv4Props {
@@ -40,7 +41,21 @@ export const Ipv4Provider = () =>
     Ipv4,
     Ipv4.Provider.of({
       stables: ["id", "ip"],
-      list: () => Effect.succeed([]),
+      list: () =>
+        listAcrossParents({
+          parentPath: "/instances",
+          parentKey: "instances",
+          childPath: (instanceId) => `/instances/${instanceId}/ipv4`,
+          childKey: "ipv4s",
+          map: (live, instanceId) => ({
+            id: String(live.ip ?? ""),
+            instanceId,
+            ip: String(live.ip ?? ""),
+            netmask: String(live.netmask ?? ""),
+            gateway: String(live.gateway ?? ""),
+            type: String(live.type ?? ""),
+          }),
+        }),
       diff: Effect.fn(function* ({ news, olds }) {
         if (!isResolved(news)) return undefined;
         if (resourceId(news.instance) !== resourceId(olds.instance)) {

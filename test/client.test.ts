@@ -4,14 +4,19 @@ import * as Layer from "effect/Layer";
 import * as Redacted from "effect/Redacted";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { fromApiKey } from "../src/Credentials.ts";
-import { makeClient, VultrClient, VultrClientLive } from "../src/internal/Client.ts";
+import {
+  catchNotFound,
+  makeClient,
+  VultrClient,
+  VultrClientLive,
+} from "../src/internal/Client.ts";
 import {
   VultrApiError,
   VultrNotFound,
   VultrRateLimited,
 } from "../src/internal/Error.ts";
 import { compact, pickChanged, resourceId } from "../src/internal/defineResource.ts";
-import { catchNotFound } from "../src/internal/Client.ts";
+import { listAcrossParents } from "../src/internal/listAcross.ts";
 
 describe("helpers", () => {
   it("compacts undefined fields", () => {
@@ -150,5 +155,74 @@ describe("VultrClient", () => {
     await expect(Effect.runPromise(program)).resolves.toBe(
       "https://api.vultr.com/v2",
     );
+  });
+
+  it("lists children across parents for nuke", async () => {
+    const calls: string[] = [];
+    const http = {
+      execute: (request: { url: string }) => {
+        calls.push(request.url);
+        if (request.url.includes("/firewalls?") || request.url.endsWith("/firewalls")) {
+          return Effect.succeed({
+            status: 200,
+            text: Effect.succeed(
+              JSON.stringify({
+                firewall_groups: [{ id: "g1" }, { id: "g2" }],
+                meta: {},
+              }),
+            ),
+            json: Effect.succeed({}),
+          });
+        }
+        if (request.url.includes("/firewalls/g1/rules")) {
+          return Effect.succeed({
+            status: 200,
+            text: Effect.succeed(
+              JSON.stringify({
+                firewall_rules: [{ id: "r1", action: "accept", port: "22", notes: "" }],
+                meta: {},
+              }),
+            ),
+            json: Effect.succeed({}),
+          });
+        }
+        if (request.url.includes("/firewalls/g2/rules")) {
+          return Effect.succeed({
+            status: 200,
+            text: Effect.succeed(
+              JSON.stringify({ firewall_rules: [], meta: {} }),
+            ),
+            json: Effect.succeed({}),
+          });
+        }
+        return Effect.succeed({
+          status: 404,
+          text: Effect.succeed(JSON.stringify({ error: "Not found" })),
+          json: Effect.succeed({}),
+        });
+      },
+    };
+
+    const client = makeClient(
+      http as never,
+      Redacted.make("test-key"),
+      "https://api.vultr.com/v2",
+    );
+
+    const items = await Effect.runPromise(
+      listAcrossParents({
+        parentPath: "/firewalls",
+        parentKey: "firewall_groups",
+        childPath: (id) => `/firewalls/${id}/rules`,
+        childKey: "firewall_rules",
+        map: (live, firewallGroupId) => ({
+          id: String(live.id),
+          firewallGroupId,
+        }),
+      }).pipe(Effect.provideService(VultrClient, Effect.succeed(client))),
+    );
+
+    expect(items).toEqual([{ id: "r1", firewallGroupId: "g1" }]);
+    expect(calls.some((url) => url.includes("/firewalls"))).toBe(true);
   });
 });
