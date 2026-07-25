@@ -35,6 +35,33 @@ export const Bucket = Resource<Bucket>("Vultr.ObjectStorage.Bucket", {
   aliases: ["Vultr.ObjectStorageBucket"],
 });
 
+const readBucket = (objectStorageId: string, name: string) =>
+  Effect.gen(function* () {
+    const client = yield* yield* VultrClient;
+    const response = yield* catchNotFound(
+      client.get<JsonObject>(
+        `/object-storage/${objectStorageId}/buckets/${name}`,
+      ),
+    );
+    if (!response) {
+      // Some Vultr plans only expose list; fall back to list+match.
+      const listed = yield* catchNotFound(
+        client.get<{ buckets?: JsonObject[] }>(
+          `/object-storage/${objectStorageId}/buckets`,
+        ),
+      );
+      const match = listed?.buckets?.find(
+        (bucket) => String(bucket.name ?? "") === name,
+      );
+      if (!match) return undefined;
+    }
+    return {
+      id: `${objectStorageId}:${name}`,
+      objectStorageId,
+      name,
+    };
+  });
+
 export const BucketProvider = () =>
   Provider.succeed(
     Bucket,
@@ -53,27 +80,34 @@ export const BucketProvider = () =>
       }),
       read: Effect.fn(function* ({ output }) {
         if (!output?.name || !output.objectStorageId) return undefined;
-        return output;
+        return yield* readBucket(output.objectStorageId, output.name);
       }),
       reconcile: Effect.fn(function* ({ news, output }) {
-        const client = yield* yield* VultrClient;
         const objectStorageId = resourceId(news.objectStorage);
-        if (output?.name === news.name) {
-          return {
+
+        // Observe → ensure → sync (existence-only).
+        let observed = output?.name
+          ? yield* readBucket(objectStorageId, output.name)
+          : undefined;
+        if (!observed || observed.name !== news.name) {
+          observed = yield* readBucket(objectStorageId, news.name);
+        }
+        if (!observed) {
+          const client = yield* yield* VultrClient;
+          yield* client
+            .post<JsonObject>(`/object-storage/${objectStorageId}/buckets`, {
+              body: compact({ name: news.name }),
+            })
+            .pipe(
+              Effect.catchTag("VultrConflict", () => Effect.void),
+            );
+          observed = {
             id: `${objectStorageId}:${news.name}`,
             objectStorageId,
             name: news.name,
           };
         }
-        yield* client.post<JsonObject>(
-          `/object-storage/${objectStorageId}/buckets`,
-          { body: compact({ name: news.name }) },
-        );
-        return {
-          id: `${objectStorageId}:${news.name}`,
-          objectStorageId,
-          name: news.name,
-        };
+        return observed;
       }),
       delete: Effect.fn(function* ({ output }) {
         if (!output.name || !output.objectStorageId) return;

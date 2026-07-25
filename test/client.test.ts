@@ -5,8 +5,13 @@ import * as Redacted from "effect/Redacted";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { fromApiKey } from "../src/Credentials.ts";
 import { makeClient, VultrClient, VultrClientLive } from "../src/internal/Client.ts";
-import { VultrApiError } from "../src/internal/Error.ts";
+import {
+  VultrApiError,
+  VultrNotFound,
+  VultrRateLimited,
+} from "../src/internal/Error.ts";
 import { compact, pickChanged, resourceId } from "../src/internal/defineResource.ts";
+import { catchNotFound } from "../src/internal/Client.ts";
 
 describe("helpers", () => {
   it("compacts undefined fields", () => {
@@ -60,7 +65,7 @@ describe("VultrClient", () => {
     expect(calls[0]?.url).toContain("/ssh-keys");
   });
 
-  it("maps non-2xx responses to VultrApiError", async () => {
+  it("maps 404 responses to VultrNotFound", async () => {
     const http = {
       execute: () =>
         Effect.succeed({
@@ -78,8 +83,57 @@ describe("VultrClient", () => {
     const error = await Effect.runPromise(
       client.get("/missing").pipe(Effect.flip),
     );
+    expect(error).toBeInstanceOf(VultrNotFound);
+    expect((error as VultrNotFound).status).toBe(404);
+
+    const missing = await Effect.runPromise(
+      catchNotFound(client.get("/missing")),
+    );
+    expect(missing).toBeUndefined();
+  });
+
+  it("maps 429 responses to VultrRateLimited", async () => {
+    const http = {
+      execute: () =>
+        Effect.succeed({
+          status: 429,
+          text: Effect.succeed(JSON.stringify({ error: "Slow down" })),
+          json: Effect.succeed({ error: "Slow down" }),
+        }),
+    };
+    const client = makeClient(
+      http as never,
+      Redacted.make("test-key"),
+      "https://api.vultr.com/v2",
+    );
+
+    // Retries exhaust, then surface the typed tag.
+    const error = await Effect.runPromise(
+      client.get("/throttled").pipe(Effect.flip),
+    );
+    expect(error).toBeInstanceOf(VultrRateLimited);
+  });
+
+  it("maps other non-2xx responses to VultrApiError", async () => {
+    const http = {
+      execute: () =>
+        Effect.succeed({
+          status: 400,
+          text: Effect.succeed(JSON.stringify({ error: "Bad request" })),
+          json: Effect.succeed({ error: "Bad request" }),
+        }),
+    };
+    const client = makeClient(
+      http as never,
+      Redacted.make("test-key"),
+      "https://api.vultr.com/v2",
+    );
+
+    const error = await Effect.runPromise(
+      client.get("/bad").pipe(Effect.flip),
+    );
     expect(error).toBeInstanceOf(VultrApiError);
-    expect((error as VultrApiError).status).toBe(404);
+    expect((error as VultrApiError).status).toBe(400);
   });
 
   it("provides a live layer over credentials", async () => {

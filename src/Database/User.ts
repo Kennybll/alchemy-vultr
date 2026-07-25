@@ -1,14 +1,16 @@
+import * as Redacted from "effect/Redacted";
 import {
   compact,
   defineNestedCrudResource,
   pickChanged,
   resourceId,
 } from "../internal/nestedResource.ts";
+import { redact, reveal } from "../internal/redacted.ts";
 
 export interface DatabaseUserProps {
   database: string | { readonly id: string };
   username: string;
-  password?: string;
+  password?: string | Redacted.Redacted<string>;
   encryption?: "legacy" | "caching_sha2_password";
   permission?: string;
 }
@@ -17,7 +19,7 @@ export type DatabaseUserAttributes = {
   id: string;
   databaseId: string;
   username: string;
-  password: string;
+  password: Redacted.Redacted<string>;
 };
 
 const defined = defineNestedCrudResource<
@@ -39,14 +41,14 @@ const defined = defineNestedCrudResource<
   toCreateBody: (props) =>
     compact({
       username: props.username,
-      password: props.password,
+      password: reveal(props.password),
       encryption: props.encryption,
       permission: props.permission,
     }),
   toUpdateBody: (props, live) =>
     pickChanged(
       {
-        password: props.password,
+        password: reveal(props.password),
         encryption: props.encryption,
         permission: props.permission,
       },
@@ -57,7 +59,7 @@ const defined = defineNestedCrudResource<
     id: String(live.username ?? props.username),
     databaseId,
     username: String(live.username ?? props.username),
-    password: String(live.password ?? props.password ?? ""),
+    password: redact(live.password ?? reveal(props.password) ?? ""),
   }),
 });
 

@@ -1,0 +1,39 @@
+{
+  "provider": "Vultr",
+  "typeIdPrefix": "Vultr",
+  "doctrine": [
+    "observe-ensure-sync reconcile",
+    "typed VultrNotFound/VultrConflict/VultrRateLimited/VultrUnavailable",
+    "Redacted secrets",
+    "Duration.Input for time props",
+    "createPhysicalName for optional names",
+    "live tests: destroy → deploy → out-of-band verify → destroy → gone"
+  ],
+  "services": [
+    "ApiKey",
+    "BareMetal",
+    "BlockStorage",
+    "CDN",
+    "Catalog",
+    "ContainerRegistry",
+    "DNS",
+    "Database",
+    "Firewall",
+    "Inference",
+    "Instance",
+    "Iso",
+    "Kubernetes",
+    "LoadBalancer",
+    "ObjectStorage",
+    "Oidc",
+    "Organization",
+    "ReservedIp",
+    "ReverseDns",
+    "Snapshot",
+    "SshKey",
+    "StartupScript",
+    "User",
+    "Vfs",
+    "Vpc"
+  ]
+}

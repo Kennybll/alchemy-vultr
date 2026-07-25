@@ -38,7 +38,14 @@ export * from "./Credentials.ts";
 export * from "./Providers.ts";
 export { DEFAULT_BASE_URL, VultrClient } from "./internal/Client.ts";
 export type { VultrClientService } from "./internal/Client.ts";
-export { VultrApiError, VultrDecodeError } from "./internal/Error.ts";
+export {
+  VultrApiError,
+  VultrConflict,
+  VultrDecodeError,
+  VultrNotFound,
+  VultrRateLimited,
+  VultrUnavailable,
+} from "./internal/Error.ts";
 export type { VultrError } from "./internal/Error.ts";
 
 // ── services (namespaced) ──

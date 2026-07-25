@@ -6,7 +6,16 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import { VultrCredentials } from "../Credentials.ts";
 import { DEFAULT_BASE_URL } from "./constants.ts";
-import { VultrApiError, VultrDecodeError } from "./Error.ts";
+import {
+  VultrApiError,
+  VultrConflict,
+  VultrDecodeError,
+  VultrNotFound,
+  VultrRateLimited,
+  VultrUnavailable,
+  type VultrError,
+} from "./Error.ts";
+import { withTransientRetry } from "./retry.ts";
 
 export { DEFAULT_BASE_URL };
 
@@ -24,33 +33,35 @@ export interface VultrRequestOptions {
   readonly acceptEmpty?: boolean;
 }
 
+export type VultrClientError = VultrError;
+
 export interface VultrClientService {
   readonly baseUrl: string;
   readonly get: <A = unknown>(
     path: string,
     options?: VultrRequestOptions,
-  ) => Effect.Effect<A, VultrApiError | VultrDecodeError>;
+  ) => Effect.Effect<A, VultrClientError>;
   readonly post: <A = unknown>(
     path: string,
     options?: VultrRequestOptions,
-  ) => Effect.Effect<A, VultrApiError | VultrDecodeError>;
+  ) => Effect.Effect<A, VultrClientError>;
   readonly put: <A = unknown>(
     path: string,
     options?: VultrRequestOptions,
-  ) => Effect.Effect<A, VultrApiError | VultrDecodeError>;
+  ) => Effect.Effect<A, VultrClientError>;
   readonly patch: <A = unknown>(
     path: string,
     options?: VultrRequestOptions,
-  ) => Effect.Effect<A, VultrApiError | VultrDecodeError>;
+  ) => Effect.Effect<A, VultrClientError>;
   readonly del: (
     path: string,
     options?: VultrRequestOptions,
-  ) => Effect.Effect<void, VultrApiError | VultrDecodeError>;
+  ) => Effect.Effect<void, VultrClientError>;
   readonly listAll: <A>(
     path: string,
     collectionKey: string,
     options?: VultrRequestOptions,
-  ) => Effect.Effect<A[], VultrApiError | VultrDecodeError>;
+  ) => Effect.Effect<A[], VultrClientError>;
 }
 
 /**
@@ -81,16 +92,46 @@ const buildUrl = (
   return url.toString();
 };
 
+const NOT_FOUND_MESSAGE =
+  /not found|does not exist|invalid .*id|could not find|no such/i;
+const CONFLICT_MESSAGE = /already exists|duplicate|conflict/i;
+
+const classifyHttpError = (input: {
+  method: string;
+  path: string;
+  status: number;
+  message: string;
+  body?: unknown;
+}): VultrClientError => {
+  const { method, path, status, message, body } = input;
+  if (
+    status === 404 ||
+    (status === 400 && NOT_FOUND_MESSAGE.test(message))
+  ) {
+    return new VultrNotFound({ method, path, status, message, body });
+  }
+  if (status === 409 || CONFLICT_MESSAGE.test(message)) {
+    return new VultrConflict({ method, path, status, message, body });
+  }
+  if (status === 429) {
+    return new VultrRateLimited({ method, path, status, message, body });
+  }
+  if (status === 0 || status >= 500) {
+    return new VultrUnavailable({ method, path, status, message, body });
+  }
+  return new VultrApiError({ method, path, status, message, body });
+};
+
 export const makeClient = (
   http: HttpClient.HttpClient,
   apiKey: Redacted.Redacted<string>,
   baseUrl: string,
 ): VultrClientService => {
-  const execute = <A>(
+  const executeOnce = <A>(
     method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
     path: string,
     options?: VultrRequestOptions,
-  ): Effect.Effect<A, VultrApiError | VultrDecodeError> =>
+  ): Effect.Effect<A, VultrClientError> =>
     Effect.gen(function* () {
       const url = buildUrl(baseUrl, path, options?.query);
       let request = HttpClientRequest.make(method)(url).pipe(
@@ -118,7 +159,7 @@ export const makeClient = (
       const response = yield* http.execute(request).pipe(
         Effect.mapError(
           (cause) =>
-            new VultrApiError({
+            new VultrUnavailable({
               method,
               path,
               status: 0,
@@ -145,7 +186,7 @@ export const makeClient = (
             ? (body as { error: string }).error
             : bodyText || `Vultr API returned ${response.status}`;
 
-        return yield* new VultrApiError({
+        return yield* classifyHttpError({
           method,
           path,
           status: response.status,
@@ -185,6 +226,13 @@ export const makeClient = (
         });
       }
     });
+
+  const execute = <A>(
+    method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
+    path: string,
+    options?: VultrRequestOptions,
+  ): Effect.Effect<A, VultrClientError> =>
+    withTransientRetry(executeOnce<A>(method, path, options));
 
   return {
     baseUrl,
@@ -248,19 +296,32 @@ export const VultrClientLive = Layer.effect(
   }),
 );
 
-const isNotFound = (e: unknown): boolean =>
-  e instanceof VultrApiError &&
-  (e.status === 404 ||
-    /not found|does not exist|invalid .*id|could not find/i.test(e.message));
+/**
+ * Convenience: catch typed `VultrNotFound` and succeed with `undefined`.
+ * Prefer this (or `Effect.catchTag("VultrNotFound", ...)`) over status checks.
+ */
+export const catchNotFound = <A, R>(
+  effect: Effect.Effect<A, VultrClientError, R>,
+): Effect.Effect<
+  A | undefined,
+  Exclude<VultrClientError, VultrNotFound>,
+  R
+> =>
+  effect.pipe(
+    Effect.catchTag("VultrNotFound", () => Effect.succeed(undefined)),
+  );
 
 /**
- * Convenience: catch "not found" style Vultr errors and succeed with `undefined`.
+ * Convenience: catch typed `VultrConflict` (create races) and succeed with
+ * `undefined` so reconcile can fall through to observe.
  */
-export const catchNotFound = <A, E, R>(
-  effect: Effect.Effect<A, E, R>,
-): Effect.Effect<A | undefined, E, R> =>
+export const catchConflict = <A, R>(
+  effect: Effect.Effect<A, VultrClientError, R>,
+): Effect.Effect<
+  A | undefined,
+  Exclude<VultrClientError, VultrConflict>,
+  R
+> =>
   effect.pipe(
-    Effect.catch((e: E) =>
-      isNotFound(e) ? Effect.succeed(undefined) : Effect.fail(e),
-    ),
+    Effect.catchTag("VultrConflict", () => Effect.succeed(undefined)),
   );

@@ -52,6 +52,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:live": "bun test test/live",
     "generate:resources": "bun scripts/generate-resources.ts",
     "prepublishOnly": "bun run typecheck && bun run test && bun run build"
   },

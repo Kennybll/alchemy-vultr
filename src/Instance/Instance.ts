@@ -2,6 +2,7 @@ import { Resource } from "alchemy";
 import { isResolved } from "alchemy/Diff";
 import * as Provider from "alchemy/Provider";
 import * as Effect from "effect/Effect";
+import * as Redacted from "effect/Redacted";
 import {
   catchNotFound,
   VultrClient,
@@ -11,6 +12,7 @@ import {
   pickChanged,
   type JsonObject,
 } from "../internal/defineResource.ts";
+import { redact } from "../internal/redacted.ts";
 import type { Providers } from "../Providers.ts";
 
 export interface InstanceProps {
@@ -76,7 +78,7 @@ export type Instance = Resource<
     osId: number;
     appId: number;
     hostname: string;
-    defaultPassword: string;
+    defaultPassword: Redacted.Redacted<string>;
     dateCreated: string;
     kvm: string;
     tags: ReadonlyArray<string>;
@@ -100,7 +102,7 @@ const toAttributes = (live: JsonObject) => ({
   osId: Number(live.os_id ?? 0),
   appId: Number(live.app_id ?? 0),
   hostname: String(live.hostname ?? ""),
-  defaultPassword: String(live.default_password ?? ""),
+  defaultPassword: redact(live.default_password),
   dateCreated: String(live.date_created ?? ""),
   kvm: String(live.kvm ?? ""),
   tags: (live.tags as string[] | undefined) ?? [],

@@ -114,7 +114,7 @@ const plans = yield* Vultr.Catalog.listPlans({ type: "vhf" });
 
 ## Development
 
-This repo vendors Alchemy and Effect as git submodules under `repos/` for local reference:
+This repo vendors Alchemy and Effect as git submodules under `repos/` for local reference. Provider work follows Alchemy’s [resource factory](https://alchemy.run/blog/2026-07-02-cloudflare-resource-factory) and [beta.64](https://alchemy.run/blog/2026-07-22-beta-64/) conventions — see `AGENTS.md` and `processes/Vultr/`.
 
 ```bash
 git submodule update --init --recursive
@@ -122,6 +122,13 @@ bun install
 bun run typecheck
 bun run test
 bun run build
+```
+
+Live provider tests (requires a Vultr API key; skips when unset):
+
+```bash
+export VULTR_API_KEY=...
+bun run test:live
 ```
 
 Regenerate the CRUD resource modules from the catalog:

@@ -1,15 +1,23 @@
+import type * as Duration from "effect/Duration";
 import {
   compact,
   defineNestedCrudResource,
   pickChanged,
   resourceId,
 } from "../internal/nestedResource.ts";
+import { toWireHours } from "../internal/duration.ts";
 
 export interface DatabaseTopicProps {
   database: string | { readonly id: string };
   name: string;
   partitions: number;
   replication: number;
+  /**
+   * Message retention. Prefer `Duration.Input` (`"24 hours"`); a bare number
+   * is treated as hours for backward compatibility.
+   */
+  retention?: Duration.Input;
+  /** @deprecated Prefer `retention`. */
   retentionHours?: number;
   retentionBytes?: number;
 }
@@ -43,7 +51,8 @@ const defined = defineNestedCrudResource<
       name: props.name,
       partitions: props.partitions,
       replication: props.replication,
-      retention_hours: props.retentionHours,
+      retention_hours:
+        props.retentionHours ?? toWireHours(props.retention),
       retention_bytes: props.retentionBytes,
     }),
   toUpdateBody: (props, live) =>

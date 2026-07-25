@@ -112,9 +112,19 @@ export const defineCrudResource = <
           }
 
           if (!live) {
-            const created = yield* client.post<JsonObject>(config.listPath, {
-              body: config.toCreateBody(props),
-            });
+            // Observe → ensure: create; on conflict with a known id, re-read.
+            const created = yield* client
+              .post<JsonObject>(config.listPath, {
+                body: config.toCreateBody(props),
+              })
+              .pipe(
+                Effect.catchTag("VultrConflict", (error) => {
+                  if (!existingId) return Effect.fail(error);
+                  return client.get<JsonObject>(
+                    config.getPath(existingId, props),
+                  );
+                }),
+              );
             live = (created[config.wrapKey] ?? created) as JsonObject;
           } else if (config.toUpdateBody && !config.immutable) {
             const body = config.toUpdateBody(props, live);
