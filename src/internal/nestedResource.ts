@@ -136,7 +136,6 @@ export const defineNestedCrudResource = <
           return config.toAttributes(live, parentId, {} as Props);
         }),
         reconcile: Effect.fn(function* ({ news, output }: any) {
-          // Observe → ensure → sync (single flow for create/update/adoption).
           const client = yield* yield* VultrClient;
           const props = news as Props;
           const parentId = config.resolveParentId(props);

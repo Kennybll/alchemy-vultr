@@ -41,14 +41,31 @@ export type StartupScript = Resource<
   Providers
 >;
 
+type StartupScriptAttrs = {
+  id: string;
+  name: string;
+  dateCreated: string;
+  dateModified: string;
+};
+
 /** Startup-script names accept ≥255 chars live; keep headroom for stage. */
 const resolveName = (id: string, name: string | undefined) =>
-  Effect.gen(function* () {
-    return (
-      name ??
-      (yield* createPhysicalName({ id, lowercase: true, maxLength: 255 }))
-    );
-  });
+  name != null && name.length > 0
+    ? Effect.succeed(name)
+    : createPhysicalName({ id, lowercase: true, maxLength: 255 });
+
+const unwrap = (response: JsonObject): JsonObject =>
+  (response.startup_script ?? response) as JsonObject;
+
+const toAttrs = (
+  live: JsonObject,
+  fallbackName?: string,
+): StartupScriptAttrs => ({
+  id: String(live.id ?? ""),
+  name: String(live.name ?? fallbackName ?? ""),
+  dateCreated: String(live.date_created ?? ""),
+  dateModified: String(live.date_modified ?? ""),
+});
 
 /**
  * A startup script executed on first boot of an instance.
@@ -79,12 +96,7 @@ export const StartupScriptProvider = () =>
           "/startup-scripts",
           "startup_scripts",
         );
-        return items.map((live) => ({
-          id: String(live.id ?? ""),
-          name: String(live.name ?? ""),
-          dateCreated: String(live.date_created ?? ""),
-          dateModified: String(live.date_modified ?? ""),
-        }));
+        return items.map((live) => toAttrs(live));
       }),
       diff: Effect.fn(function* ({ news, olds }) {
         if (!isResolved(news)) return undefined;
@@ -100,29 +112,20 @@ export const StartupScriptProvider = () =>
           client.get<JsonObject>(`/startup-scripts/${output.id}`),
         );
         if (!response) return undefined;
-        const live = (response.startup_script ?? response) as JsonObject;
-        return {
-          id: String(live.id ?? ""),
-          name: String(live.name ?? ""),
-          dateCreated: String(live.date_created ?? ""),
-          dateModified: String(live.date_modified ?? ""),
-        };
+        return toAttrs(unwrap(response));
       }),
       reconcile: Effect.fn(function* ({ id, news, output }) {
         const client = yield* yield* VultrClient;
         const name = yield* resolveName(id, news.name);
+        const scriptB64 = encodeScript(news.script);
 
         let live: JsonObject | undefined;
         if (output?.id) {
           const response = yield* catchNotFound(
             client.get<JsonObject>(`/startup-scripts/${output.id}`),
           );
-          if (response) {
-            live = (response.startup_script ?? response) as JsonObject;
-          }
+          if (response) live = unwrap(response);
         }
-
-        const scriptB64 = encodeScript(news.script);
 
         if (!live) {
           const created = yield* client
@@ -141,7 +144,7 @@ export const StartupScriptProvider = () =>
                 );
               }),
             );
-          live = (created.startup_script ?? created) as JsonObject;
+          live = unwrap(created);
         } else {
           // Live `script` is base64; compare encoded desired to avoid churn.
           const body = pickChanged(
@@ -152,21 +155,13 @@ export const StartupScriptProvider = () =>
           if (Object.keys(body).length > 0) {
             const path = `/startup-scripts/${String(live.id)}`;
             const updated = yield* client.patch<JsonObject>(path, { body });
-            if (updated) {
-              live = (updated.startup_script ?? updated ?? live) as JsonObject;
-            } else {
-              const refreshed = yield* client.get<JsonObject>(path);
-              live = (refreshed.startup_script ?? refreshed) as JsonObject;
-            }
+            live = updated ? unwrap(updated) : unwrap(
+              yield* client.get<JsonObject>(path),
+            );
           }
         }
 
-        return {
-          id: String(live.id ?? ""),
-          name: String(live.name ?? name),
-          dateCreated: String(live.date_created ?? ""),
-          dateModified: String(live.date_modified ?? ""),
-        };
+        return toAttrs(live, name);
       }),
       delete: Effect.fn(function* ({ output }) {
         if (!output?.id) return;

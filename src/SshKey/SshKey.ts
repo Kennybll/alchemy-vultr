@@ -4,7 +4,6 @@ import * as Provider from "alchemy/Provider";
 import * as Effect from "effect/Effect";
 import { catchNotFound, VultrClient } from "../internal/Client.ts";
 import {
-  compact,
   pickChanged,
   type JsonObject,
 } from "../internal/defineResource.ts";
@@ -32,18 +31,30 @@ export type SshKey = Resource<
   Providers
 >;
 
+type SshKeyAttrs = {
+  id: string;
+  name: string;
+  dateCreated: string;
+};
+
 /**
  * Vultr silently truncates SSH key names to 128 chars (live-probed).
  * Keep createPhysicalName at that ceiling so the stage segment survives
  * for normal stack ids; the truncation hash still disambiguates extremes.
  */
 const resolveName = (id: string, name: string | undefined) =>
-  Effect.gen(function* () {
-    return (
-      name ??
-      (yield* createPhysicalName({ id, lowercase: true, maxLength: 128 }))
-    );
-  });
+  name != null && name.length > 0
+    ? Effect.succeed(name)
+    : createPhysicalName({ id, lowercase: true, maxLength: 128 });
+
+const unwrap = (response: JsonObject): JsonObject =>
+  (response.ssh_key ?? response) as JsonObject;
+
+const toAttrs = (live: JsonObject, fallbackName?: string): SshKeyAttrs => ({
+  id: String(live.id ?? ""),
+  name: String(live.name ?? fallbackName ?? ""),
+  dateCreated: String(live.date_created ?? ""),
+});
 
 /**
  * An SSH public key registered on your Vultr account.
@@ -80,11 +91,7 @@ export const SshKeyProvider = () =>
           "/ssh-keys",
           "ssh_keys",
         );
-        return items.map((live) => ({
-          id: String(live.id ?? ""),
-          name: String(live.name ?? ""),
-          dateCreated: String(live.date_created ?? ""),
-        }));
+        return items.map((live) => toAttrs(live));
       }),
       diff: Effect.fn(function* ({ news, olds }) {
         if (!isResolved(news)) return undefined;
@@ -101,23 +108,14 @@ export const SshKeyProvider = () =>
             client.get<JsonObject>(`/ssh-keys/${output.id}`),
           );
           if (!response) return undefined;
-          const live = (response.ssh_key ?? response) as JsonObject;
-          return {
-            id: String(live.id ?? ""),
-            name: String(live.name ?? ""),
-            dateCreated: String(live.date_created ?? ""),
-          };
+          return toAttrs(unwrap(response));
         }
         const name = yield* resolveName(id, olds?.name);
         const items = yield* client.listAll<JsonObject>("/ssh-keys", "ssh_keys");
         const match = items.find((item) => String(item.name ?? "") === name);
         if (!match) return undefined;
         // Vultr SSH keys have no ownership tags — plain attrs = silent adopt.
-        return {
-          id: String(match.id ?? ""),
-          name: String(match.name ?? ""),
-          dateCreated: String(match.date_created ?? ""),
-        };
+        return toAttrs(match);
       }),
       reconcile: Effect.fn(function* ({ id, news, output }) {
         const client = yield* yield* VultrClient;
@@ -128,9 +126,7 @@ export const SshKeyProvider = () =>
           const response = yield* catchNotFound(
             client.get<JsonObject>(`/ssh-keys/${output.id}`),
           );
-          if (response) {
-            live = (response.ssh_key ?? response) as JsonObject;
-          }
+          if (response) live = unwrap(response);
         }
         if (!live) {
           const items = yield* client.listAll<JsonObject>(
@@ -144,7 +140,7 @@ export const SshKeyProvider = () =>
         if (!live) {
           const created = yield* client
             .post<JsonObject>("/ssh-keys", {
-              body: compact({ name, ssh_key: news.sshKey }),
+              body: { name, ssh_key: news.sshKey },
             })
             .pipe(
               Effect.catchTag("VultrConflict", (error) => {
@@ -152,30 +148,20 @@ export const SshKeyProvider = () =>
                 return client.get<JsonObject>(`/ssh-keys/${output.id}`);
               }),
             );
-          live = (created.ssh_key ?? created) as JsonObject;
+          live = unwrap(created);
         } else {
-          const body = pickChanged(
-            { name, ssh_key: news.sshKey },
-            live,
-            ["name", "ssh_key"],
-          );
+          // sshKey changes are replace (diff); only name is patched in place.
+          const body = pickChanged({ name }, live, ["name"]);
           if (Object.keys(body).length > 0) {
             const path = `/ssh-keys/${String(live.id)}`;
             const updated = yield* client.patch<JsonObject>(path, { body });
-            if (updated) {
-              live = (updated.ssh_key ?? updated ?? live) as JsonObject;
-            } else {
-              const refreshed = yield* client.get<JsonObject>(path);
-              live = (refreshed.ssh_key ?? refreshed) as JsonObject;
-            }
+            live = updated ? unwrap(updated) : unwrap(
+              yield* client.get<JsonObject>(path),
+            );
           }
         }
 
-        return {
-          id: String(live.id ?? ""),
-          name: String(live.name ?? name),
-          dateCreated: String(live.date_created ?? ""),
-        };
+        return toAttrs(live, name);
       }),
       delete: Effect.fn(function* ({ output }) {
         if (!output?.id) return;

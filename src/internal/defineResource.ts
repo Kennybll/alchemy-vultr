@@ -1,6 +1,7 @@
 import { Resource } from "alchemy";
 import { isResolved } from "alchemy/Diff";
 import * as Provider from "alchemy/Provider";
+import { stripUndefinedFields } from "alchemy/Util";
 import * as Effect from "effect/Effect";
 import { catchNotFound, VultrClient } from "./Client.ts";
 
@@ -29,7 +30,6 @@ export interface CrudResourceConfig<
     live: JsonObject,
   ) => JsonObject | undefined;
   readonly toAttributes: (live: JsonObject, props: Props) => Attributes;
-  readonly listItemToAttributes?: (live: JsonObject) => Attributes;
   readonly updateMethod?: "PATCH" | "PUT" | "POST";
   readonly immutable?: boolean;
 }
@@ -70,9 +70,7 @@ export const defineCrudResource = <
             config.listKey,
           );
           return items.map((item) =>
-            config.listItemToAttributes
-              ? config.listItemToAttributes(item)
-              : config.toAttributes(item, {} as Props),
+            config.toAttributes(item, {} as Props),
           );
         }),
         diff: Effect.fn(function* ({ news, olds }: any) {
@@ -191,16 +189,9 @@ export const resourceId = (
   throw new Error(`Expected resource id string or object with ${key}`);
 };
 
-/**
- * Drop undefined values from a request body.
- */
-export const compact = <T extends JsonObject>(body: T): JsonObject => {
-  const out: JsonObject = {};
-  for (const [key, value] of Object.entries(body)) {
-    if (value !== undefined) out[key] = value;
-  }
-  return out;
-};
+/** Drop undefined values from a request body (`alchemy/Util`). */
+export const compact = <T extends JsonObject>(body: T): JsonObject =>
+  stripUndefinedFields(body) as JsonObject;
 
 /**
  * Shallow compare selected keys between desired props and live API object.

@@ -32,10 +32,12 @@ export interface VultrMeta {
 export interface VultrRequestOptions {
   readonly query?: Record<string, string | number | boolean | undefined | null>;
   readonly body?: unknown;
-  readonly acceptEmpty?: boolean;
 }
 
 export type VultrClientError = VultrError;
+
+/** Safety cap so a sticky pagination cursor cannot hang nuke/list forever. */
+const MAX_LIST_PAGES = 500;
 
 export interface VultrClientService {
   readonly baseUrl: string;
@@ -258,13 +260,13 @@ export const makeClient = (
     post: (path, options) => execute("POST", path, options),
     put: (path, options) => execute("PUT", path, options),
     patch: (path, options) => execute("PATCH", path, options),
-    del: (path, options) =>
-      execute("DELETE", path, { ...options, acceptEmpty: true }),
+    del: (path, options) => execute("DELETE", path, options),
     listAll: (path, collectionKey, options) =>
       Effect.gen(function* () {
         const items: unknown[] = [];
         let cursor: string | undefined;
-        for (;;) {
+        const seen = new Set<string>();
+        for (let pageNum = 0; pageNum < MAX_LIST_PAGES; pageNum++) {
           const page = yield* execute<{
             meta?: VultrMeta;
             [key: string]: unknown;
@@ -282,16 +284,19 @@ export const makeClient = (
           }
           const next = page.meta?.links?.next;
           if (!next) break;
+          let nextCursor: string | undefined;
           try {
-            const nextUrl = new URL(next, baseUrl);
-            cursor = nextUrl.searchParams.get("cursor") ?? undefined;
+            nextCursor =
+              new URL(next, baseUrl).searchParams.get("cursor") ?? undefined;
           } catch {
-            cursor = undefined;
+            nextCursor = undefined;
           }
-          if (!cursor) break;
+          if (!nextCursor || seen.has(nextCursor)) break;
+          seen.add(nextCursor);
+          cursor = nextCursor;
         }
-        return items as never;
-      }),
+        return items;
+      }) as Effect.Effect<any[], VultrClientError>,
   };
 };
 
@@ -327,19 +332,4 @@ export const catchNotFound = <A, R>(
 > =>
   effect.pipe(
     Effect.catchTag("VultrNotFound", () => Effect.succeed(undefined)),
-  );
-
-/**
- * Convenience: catch typed `VultrConflict` (create races) and succeed with
- * `undefined` so reconcile can fall through to observe.
- */
-export const catchConflict = <A, R>(
-  effect: Effect.Effect<A, VultrClientError, R>,
-): Effect.Effect<
-  A | undefined,
-  Exclude<VultrClientError, VultrConflict>,
-  R
-> =>
-  effect.pipe(
-    Effect.catchTag("VultrConflict", () => Effect.succeed(undefined)),
   );
