@@ -1,18 +1,13 @@
-import { Resource, createPhysicalName } from "alchemy";
+import { createPhysicalName, Resource } from "alchemy";
 import { isResolved } from "alchemy/Diff";
 import * as Provider from "alchemy/Provider";
 import * as Effect from "effect/Effect";
 import { catchNotFound, VultrClient } from "../internal/Client.ts";
-import {
-  compact,
-  pickChanged,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import { compact, type JsonObject, pickChanged } from "../internal/defineResource.ts";
 import type { Providers } from "../Providers.ts";
 
 /** UTF-8 script body → base64 for Vultr's wire format. */
-const encodeScript = (script: string): string =>
-  Buffer.from(script, "utf8").toString("base64");
+const encodeScript = (script: string): string => Buffer.from(script, "utf8").toString("base64");
 
 export interface StartupScriptProps {
   /**
@@ -57,10 +52,7 @@ const resolveName = (id: string, name: string | undefined) =>
 const unwrap = (response: JsonObject): JsonObject =>
   (response.startup_script ?? response) as JsonObject;
 
-const toAttrs = (
-  live: JsonObject,
-  fallbackName?: string,
-): StartupScriptAttrs => ({
+const toAttrs = (live: JsonObject, fallbackName?: string): StartupScriptAttrs => ({
   id: String(live.id ?? ""),
   name: String(live.name ?? fallbackName ?? ""),
   dateCreated: String(live.date_created ?? ""),
@@ -80,10 +72,9 @@ const toAttrs = (
  * });
  * ```
  */
-export const StartupScript = Resource<StartupScript>(
-  "Vultr.StartupScript.StartupScript",
-  { aliases: ["Vultr.StartupScript"] },
-);
+export const StartupScript = Resource<StartupScript>("Vultr.StartupScript.StartupScript", {
+  aliases: ["Vultr.StartupScript"],
+});
 
 export const StartupScriptProvider = () =>
   Provider.succeed(
@@ -92,10 +83,7 @@ export const StartupScriptProvider = () =>
       stables: ["id"],
       list: Effect.fn(function* () {
         const client = yield* yield* VultrClient;
-        const items = yield* client.listAll<JsonObject>(
-          "/startup-scripts",
-          "startup_scripts",
-        );
+        const items = yield* client.listAll<JsonObject>("/startup-scripts", "startup_scripts");
         return items.map((live) => toAttrs(live));
       }),
       diff: Effect.fn(function* ({ news, olds }) {
@@ -139,25 +127,17 @@ export const StartupScriptProvider = () =>
             .pipe(
               Effect.catchTag("VultrConflict", (error) => {
                 if (!output?.id) return Effect.fail(error);
-                return client.get<JsonObject>(
-                  `/startup-scripts/${output.id}`,
-                );
+                return client.get<JsonObject>(`/startup-scripts/${output.id}`);
               }),
             );
           live = unwrap(created);
         } else {
           // Live `script` is base64; compare encoded desired to avoid churn.
-          const body = pickChanged(
-            { name, script: scriptB64 },
-            live,
-            ["name", "script"],
-          );
+          const body = pickChanged({ name, script: scriptB64 }, live, ["name", "script"]);
           if (Object.keys(body).length > 0) {
             const path = `/startup-scripts/${String(live.id)}`;
             const updated = yield* client.patch<JsonObject>(path, { body });
-            live = updated ? unwrap(updated) : unwrap(
-              yield* client.get<JsonObject>(path),
-            );
+            live = updated ? unwrap(updated) : unwrap(yield* client.get<JsonObject>(path));
           }
         }
 

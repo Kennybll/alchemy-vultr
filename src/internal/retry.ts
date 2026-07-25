@@ -17,9 +17,6 @@ export const withTransientRetry = <A, E extends VultrError, R>(
     Effect.retry({
       while: (error) => isTransient(error),
       times: 5,
-      schedule: Schedule.max([
-        Schedule.exponential(Duration.millis(100)),
-        Schedule.recurs(5),
-      ]),
+      schedule: Schedule.max([Schedule.exponential(Duration.millis(100)), Schedule.recurs(5)]),
     }),
   );

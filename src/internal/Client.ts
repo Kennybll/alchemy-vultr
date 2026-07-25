@@ -10,12 +10,12 @@ import {
   VultrApiError,
   VultrConflict,
   VultrDecodeError,
+  type VultrError,
   VultrInvalidToken,
   VultrNotFound,
   VultrRateLimited,
   VultrUnauthorizedIp,
   VultrUnavailable,
-  type VultrError,
 } from "./Error.ts";
 import { withTransientRetry } from "./retry.ts";
 
@@ -72,20 +72,13 @@ export interface VultrClientService {
  * Lazy Vultr API client. Double-yield in handlers:
  * `const client = yield* yield* VultrClient`.
  */
-export class VultrClient extends Context.Service<
-  VultrClient,
-  Effect.Effect<VultrClientService>
->()("Vultr/Client") {}
+export class VultrClient extends Context.Service<VultrClient, Effect.Effect<VultrClientService>>()(
+  "Vultr/Client",
+) {}
 
-const buildUrl = (
-  baseUrl: string,
-  path: string,
-  query?: VultrRequestOptions["query"],
-): string => {
+const buildUrl = (baseUrl: string, path: string, query?: VultrRequestOptions["query"]): string => {
   const url = new URL(
-    path.startsWith("http")
-      ? path
-      : `${baseUrl.replace(/\/$/, "")}/${path.replace(/^\//, "")}`,
+    path.startsWith("http") ? path : `${baseUrl.replace(/\/$/, "")}/${path.replace(/^\//, "")}`,
   );
   if (query) {
     for (const [key, value] of Object.entries(query)) {
@@ -96,8 +89,7 @@ const buildUrl = (
   return url.toString();
 };
 
-const NOT_FOUND_MESSAGE =
-  /not found|does not exist|invalid .*id|could not find|no such/i;
+const NOT_FOUND_MESSAGE = /not found|does not exist|invalid .*id|could not find|no such/i;
 const CONFLICT_MESSAGE = /already exists|duplicate|conflict/i;
 
 const classifyHttpError = (input: {
@@ -108,10 +100,7 @@ const classifyHttpError = (input: {
   body?: unknown;
 }): VultrClientError => {
   const { method, path, status, message, body } = input;
-  if (
-    status === 404 ||
-    (status === 400 && NOT_FOUND_MESSAGE.test(message))
-  ) {
+  if (status === 404 || (status === 400 && NOT_FOUND_MESSAGE.test(message))) {
     return new VultrNotFound({ method, path, status, message, body });
   }
   if (status === 409 || CONFLICT_MESSAGE.test(message)) {
@@ -155,10 +144,7 @@ export const makeClient = (
     Effect.gen(function* () {
       const url = buildUrl(baseUrl, path, options?.query);
       let request = HttpClientRequest.make(method)(url).pipe(
-        HttpClientRequest.setHeader(
-          "Authorization",
-          `Bearer ${Redacted.value(apiKey)}`,
-        ),
+        HttpClientRequest.setHeader("Authorization", `Bearer ${Redacted.value(apiKey)}`),
         HttpClientRequest.acceptJson,
       );
 
@@ -189,9 +175,7 @@ export const makeClient = (
       );
 
       if (response.status < 200 || response.status >= 300) {
-        const bodyText = yield* response.text.pipe(
-          Effect.catch(() => Effect.succeed("")),
-        );
+        const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
         let body: unknown = bodyText;
         try {
           body = bodyText ? JSON.parse(bodyText) : undefined;
@@ -286,8 +270,7 @@ export const makeClient = (
           if (!next) break;
           let nextCursor: string | undefined;
           try {
-            nextCursor =
-              new URL(next, baseUrl).searchParams.get("cursor") ?? undefined;
+            nextCursor = new URL(next, baseUrl).searchParams.get("cursor") ?? undefined;
           } catch {
             nextCursor = undefined;
           }
@@ -310,9 +293,7 @@ export const VultrClientLive = Layer.effect(
     const http = yield* HttpClient.HttpClient;
     const credentialsEffect = yield* VultrCredentials;
     return yield* credentialsEffect.pipe(
-      Effect.map((credentials) =>
-        makeClient(http, credentials.apiKey, credentials.baseUrl),
-      ),
+      Effect.map((credentials) => makeClient(http, credentials.apiKey, credentials.baseUrl)),
       Effect.orDie,
       Effect.cached,
     );
@@ -325,11 +306,5 @@ export const VultrClientLive = Layer.effect(
  */
 export const catchNotFound = <A, R>(
   effect: Effect.Effect<A, VultrClientError, R>,
-): Effect.Effect<
-  A | undefined,
-  Exclude<VultrClientError, VultrNotFound>,
-  R
-> =>
-  effect.pipe(
-    Effect.catchTag("VultrNotFound", () => Effect.succeed(undefined)),
-  );
+): Effect.Effect<A | undefined, Exclude<VultrClientError, VultrNotFound>, R> =>
+  effect.pipe(Effect.catchTag("VultrNotFound", () => Effect.succeed(undefined)));

@@ -3,19 +3,20 @@ import { ProfileLive } from "alchemy/Auth/Profile";
 import * as Provider from "alchemy/Provider";
 import * as Layer from "effect/Layer";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
-import { VultrAuth } from "./AuthProvider.ts";
-import * as Credentials from "./Credentials.ts";
 import * as ApiKey from "./ApiKey/index.ts";
+import { VultrAuth } from "./AuthProvider.ts";
 import * as BareMetal from "./BareMetal/index.ts";
 import * as BlockStorage from "./BlockStorage/index.ts";
 import * as CDN from "./CDN/index.ts";
 import * as ContainerRegistry from "./ContainerRegistry/index.ts";
+import * as Credentials from "./Credentials.ts";
 import * as Database from "./Database/index.ts";
 import * as DNS from "./DNS/index.ts";
 import * as Firewall from "./Firewall/index.ts";
 import * as Inference from "./Inference/index.ts";
 import * as Instance from "./Instance/index.ts";
 import * as Iso from "./Iso/index.ts";
+import { VultrClientLive } from "./internal/Client.ts";
 import * as Kubernetes from "./Kubernetes/index.ts";
 import * as LoadBalancer from "./LoadBalancer/index.ts";
 import * as ObjectStorage from "./ObjectStorage/index.ts";
@@ -29,11 +30,8 @@ import * as StartupScript from "./StartupScript/index.ts";
 import * as User from "./User/index.ts";
 import * as Vfs from "./Vfs/index.ts";
 import * as Vpc from "./Vpc/index.ts";
-import { VultrClientLive } from "./internal/Client.ts";
 
-export class Providers extends Provider.ProviderCollection<Providers>()(
-  "Vultr",
-) {}
+export class Providers extends Provider.ProviderCollection<Providers>()("Vultr") {}
 
 export type ProviderRequirements = Layer.Services<ReturnType<typeof providers>>;
 

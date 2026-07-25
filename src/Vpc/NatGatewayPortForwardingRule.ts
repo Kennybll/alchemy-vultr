@@ -3,12 +3,7 @@ import { isResolved } from "alchemy/Diff";
 import * as Provider from "alchemy/Provider";
 import * as Effect from "effect/Effect";
 import { catchNotFound, VultrClient } from "../internal/Client.ts";
-import {
-  compact,
-  pickChanged,
-  resourceId,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import { compact, type JsonObject, pickChanged, resourceId } from "../internal/defineResource.ts";
 import { listAcrossGrandparents } from "../internal/listAcross.ts";
 import type { Providers } from "../Providers.ts";
 
@@ -36,11 +31,10 @@ export type NatGatewayPortForwardingRule = Resource<
 >;
 
 /** A port-forwarding rule on a Vultr NAT Gateway. @resource */
-export const NatGatewayPortForwardingRule =
-  Resource<NatGatewayPortForwardingRule>(
-    "Vultr.Vpc.NatGatewayPortForwardingRule",
-    { aliases: ["Vultr.NatGatewayPortForwardingRule"] },
-  );
+export const NatGatewayPortForwardingRule = Resource<NatGatewayPortForwardingRule>(
+  "Vultr.Vpc.NatGatewayPortForwardingRule",
+  { aliases: ["Vultr.NatGatewayPortForwardingRule"] },
+);
 
 export const NatGatewayPortForwardingRuleProvider = () =>
   Provider.succeed(
@@ -133,9 +127,7 @@ export const NatGatewayPortForwardingRuleProvider = () =>
               `/vpcs/${vpcId}/nat-gateways/${natGatewayId}/port-forwarding-rules/${live.id}`,
               { body: patch },
             );
-            live = (updated?.port_forwarding_rule ??
-              updated ??
-              live) as JsonObject;
+            live = (updated?.port_forwarding_rule ?? updated ?? live) as JsonObject;
           }
         }
         return {

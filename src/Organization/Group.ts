@@ -1,8 +1,4 @@
-import {
-  compact,
-  defineCrudResource,
-  pickChanged,
-} from "../internal/defineResource.ts";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
 
 export interface OrganizationGroupProps {
   name: string;

@@ -19,10 +19,7 @@ export const listAcrossParents = <A>(options: {
 }): Effect.Effect<A[], VultrClientError, VultrClient> =>
   Effect.gen(function* () {
     const client = yield* yield* VultrClient;
-    const parents = yield* client.listAll<JsonObject>(
-      options.parentPath,
-      options.parentKey,
-    );
+    const parents = yield* client.listAll<JsonObject>(options.parentPath, options.parentKey);
     const idField = options.parentIdField ?? "id";
     const batches = yield* Effect.forEach(
       parents,
@@ -53,11 +50,7 @@ export const listAcrossGrandparents = <A>(options: {
   readonly parentIdField?: string;
   readonly childPath: (grandparentId: string, parentId: string) => string;
   readonly childKey: string;
-  readonly map: (
-    item: JsonObject,
-    grandparentId: string,
-    parentId: string,
-  ) => A;
+  readonly map: (item: JsonObject, grandparentId: string, parentId: string) => A;
 }): Effect.Effect<A[], VultrClientError, VultrClient> =>
   Effect.gen(function* () {
     const client = yield* yield* VultrClient;
@@ -87,9 +80,7 @@ export const listAcrossGrandparents = <A>(options: {
                   options.childPath(grandparentId, parentId),
                   options.childKey,
                 );
-                return children.map((child) =>
-                  options.map(child, grandparentId, parentId),
-                );
+                return children.map((child) => options.map(child, grandparentId, parentId));
               }),
             { concurrency: FANOUT_CONCURRENCY },
           );

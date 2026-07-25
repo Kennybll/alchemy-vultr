@@ -1,10 +1,5 @@
-import * as Redacted from "effect/Redacted";
-import {
-  compact,
-  defineCrudResource,
-  pickChanged,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import type * as Redacted from "effect/Redacted";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
 import { reveal } from "../internal/redacted.ts";
 
 export interface OidcProviderProps {
@@ -34,28 +29,26 @@ const defined = defineCrudResource<
   listKey: "providers",
   wrapKey: "provider",
   getPath: (id) => `/oidc/providers/${id}`,
-  
-  
-  
+
   replaceOnChange: ["issuerUrl"],
   toCreateBody: (props) =>
     compact({
-    name: props.name,
-    issuer_url: props.issuerUrl,
-    client_id: props.clientId,
-    client_secret: reveal(props.clientSecret),
+      name: props.name,
+      issuer_url: props.issuerUrl,
+      client_id: props.clientId,
+      client_secret: reveal(props.clientSecret),
     }),
   toUpdateBody: (props, live) =>
     pickChanged(
       {
-      name: props.name,
-      client_id: props.clientId,
-      client_secret: reveal(props.clientSecret),
+        name: props.name,
+        client_id: props.clientId,
+        client_secret: reveal(props.clientSecret),
       },
       live,
       ["name", "client_id", "client_secret"],
     ),
-  toAttributes: (live, props) => ({
+  toAttributes: (live, _props) => ({
     id: live.id as string,
     dateCreated: live.date_created as string,
   }),

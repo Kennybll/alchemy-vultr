@@ -32,12 +32,25 @@
  * ```
  */
 
+// ── services (namespaced) ──
+export * as ApiKey from "./ApiKey/index.ts";
 // ── cross-cutting utilities (flat) ──
 export * from "./AuthProvider.ts";
+export * as BareMetal from "./BareMetal/index.ts";
+export * as BlockStorage from "./BlockStorage/index.ts";
+export * as Catalog from "./Catalog/index.ts";
+export * as CDN from "./CDN/index.ts";
+export * as ContainerRegistry from "./ContainerRegistry/index.ts";
 export * from "./Credentials.ts";
-export * from "./Providers.ts";
-export { DEFAULT_BASE_URL, VultrClient } from "./internal/Client.ts";
+export * as Database from "./Database/index.ts";
+export * as DNS from "./DNS/index.ts";
+export * as Firewall from "./Firewall/index.ts";
+export * as Inference from "./Inference/index.ts";
+export * as Instance from "./Instance/index.ts";
+export * as Iso from "./Iso/index.ts";
 export type { VultrClientService } from "./internal/Client.ts";
+export { DEFAULT_BASE_URL, VultrClient } from "./internal/Client.ts";
+export type { VultrError } from "./internal/Error.ts";
 export {
   VultrApiError,
   VultrConflict,
@@ -48,26 +61,12 @@ export {
   VultrUnauthorizedIp,
   VultrUnavailable,
 } from "./internal/Error.ts";
-export type { VultrError } from "./internal/Error.ts";
-
-// ── services (namespaced) ──
-export * as ApiKey from "./ApiKey/index.ts";
-export * as BareMetal from "./BareMetal/index.ts";
-export * as BlockStorage from "./BlockStorage/index.ts";
-export * as Catalog from "./Catalog/index.ts";
-export * as CDN from "./CDN/index.ts";
-export * as ContainerRegistry from "./ContainerRegistry/index.ts";
-export * as Database from "./Database/index.ts";
-export * as DNS from "./DNS/index.ts";
-export * as Firewall from "./Firewall/index.ts";
-export * as Inference from "./Inference/index.ts";
-export * as Instance from "./Instance/index.ts";
-export * as Iso from "./Iso/index.ts";
 export * as Kubernetes from "./Kubernetes/index.ts";
 export * as LoadBalancer from "./LoadBalancer/index.ts";
 export * as ObjectStorage from "./ObjectStorage/index.ts";
 export * as Oidc from "./Oidc/index.ts";
 export * as Organization from "./Organization/index.ts";
+export * from "./Providers.ts";
 export * as ReservedIp from "./ReservedIp/index.ts";
 export * as ReverseDns from "./ReverseDns/index.ts";
 export * as Snapshot from "./Snapshot/index.ts";

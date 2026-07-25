@@ -3,11 +3,7 @@ import { isResolved } from "alchemy/Diff";
 import * as Provider from "alchemy/Provider";
 import * as Effect from "effect/Effect";
 import { catchNotFound, VultrClient } from "../internal/Client.ts";
-import {
-  compact,
-  resourceId,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import { compact, type JsonObject, resourceId } from "../internal/defineResource.ts";
 import { listAcrossGrandparents } from "../internal/listAcross.ts";
 import type { Providers } from "../Providers.ts";
 

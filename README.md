@@ -147,6 +147,8 @@ This repo vendors Alchemy and Effect as git submodules under `repos/` for local 
 git submodule update --init --recursive
 bun install
 bun run typecheck
+bun run lint        # biome check (lint + format)
+bun run format      # biome format --write
 bun run test
 bun run build
 ```

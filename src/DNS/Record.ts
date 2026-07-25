@@ -3,12 +3,7 @@ import { isResolved } from "alchemy/Diff";
 import * as Provider from "alchemy/Provider";
 import * as Effect from "effect/Effect";
 import { catchNotFound, VultrClient } from "../internal/Client.ts";
-import {
-  compact,
-  pickChanged,
-  resourceId,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import { compact, type JsonObject, pickChanged } from "../internal/defineResource.ts";
 import { listAcrossParents } from "../internal/listAcross.ts";
 import type { Providers } from "../Providers.ts";
 
@@ -46,9 +41,8 @@ export const Record = Resource<Record>("Vultr.DNS.Record", {
   aliases: ["Vultr.DnsRecord"],
 });
 
-const domainName = (
-  domain: string | { readonly domain: string; readonly id?: string },
-) => (typeof domain === "string" ? domain : domain.domain);
+const domainName = (domain: string | { readonly domain: string; readonly id?: string }) =>
+  typeof domain === "string" ? domain : domain.domain;
 
 export const RecordProvider = () =>
   Provider.succeed(
@@ -74,10 +68,7 @@ export const RecordProvider = () =>
         }),
       diff: Effect.fn(function* ({ news, olds }) {
         if (!isResolved(news)) return undefined;
-        if (
-          domainName(news.domain) !== domainName(olds.domain) ||
-          news.type !== olds.type
-        ) {
+        if (domainName(news.domain) !== domainName(olds.domain) || news.type !== olds.type) {
           return { action: "replace" as const };
         }
         return undefined;
@@ -86,9 +77,7 @@ export const RecordProvider = () =>
         if (!output?.id || !output.domain) return undefined;
         const client = yield* yield* VultrClient;
         const response = yield* catchNotFound(
-          client.get<JsonObject>(
-            `/domains/${output.domain}/records/${output.id}`,
-          ),
+          client.get<JsonObject>(`/domains/${output.domain}/records/${output.id}`),
         );
         if (!response) return undefined;
         const live = (response.record ?? response) as JsonObject;
@@ -117,18 +106,15 @@ export const RecordProvider = () =>
         }
 
         if (!live) {
-          const created = yield* client.post<JsonObject>(
-            `/domains/${domain}/records`,
-            {
-              body: compact({
-                name: news.name,
-                type: news.type,
-                data: news.data,
-                ttl: news.ttl,
-                priority: news.priority,
-              }),
-            },
-          );
+          const created = yield* client.post<JsonObject>(`/domains/${domain}/records`, {
+            body: compact({
+              name: news.name,
+              type: news.type,
+              data: news.data,
+              ttl: news.ttl,
+              priority: news.priority,
+            }),
+          });
           live = (created.record ?? created) as JsonObject;
         } else {
           const body = pickChanged(
@@ -165,9 +151,7 @@ export const RecordProvider = () =>
       delete: Effect.fn(function* ({ output }) {
         if (!output.id || !output.domain) return;
         const client = yield* yield* VultrClient;
-        yield* catchNotFound(
-          client.del(`/domains/${output.domain}/records/${output.id}`),
-        );
+        yield* catchNotFound(client.del(`/domains/${output.domain}/records/${output.id}`));
       }),
     }),
   );

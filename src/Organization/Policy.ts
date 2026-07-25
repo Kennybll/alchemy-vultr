@@ -1,8 +1,4 @@
-import {
-  compact,
-  defineCrudResource,
-  pickChanged,
-} from "../internal/defineResource.ts";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
 
 export interface OrganizationPolicyProps {
   name: string;
@@ -34,20 +30,14 @@ const defined = defineCrudResource<
     compact({
       name: props.name,
       description: props.description,
-      policy:
-        typeof props.policy === "string"
-          ? props.policy
-          : JSON.stringify(props.policy),
+      policy: typeof props.policy === "string" ? props.policy : JSON.stringify(props.policy),
     }),
   toUpdateBody: (props, live) =>
     pickChanged(
       {
         name: props.name,
         description: props.description,
-        policy:
-          typeof props.policy === "string"
-            ? props.policy
-            : JSON.stringify(props.policy),
+        policy: typeof props.policy === "string" ? props.policy : JSON.stringify(props.policy),
       },
       live,
       ["name", "description", "policy"],

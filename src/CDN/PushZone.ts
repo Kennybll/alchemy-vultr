@@ -1,9 +1,4 @@
-import {
-  compact,
-  defineCrudResource,
-  pickChanged,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
 
 export interface CdnPushZoneProps {
   label: string;
@@ -22,11 +17,7 @@ export type CdnPushZoneAttributes = {
   cdnUrl: string;
 };
 
-const defined = defineCrudResource<
-  "Vultr.CDN.PushZone",
-  CdnPushZoneProps,
-  CdnPushZoneAttributes
->({
+const defined = defineCrudResource<"Vultr.CDN.PushZone", CdnPushZoneProps, CdnPushZoneAttributes>({
   type: "Vultr.CDN.PushZone",
   aliases: ["Vultr.CdnPushZone"],
   description: "A Vultr CDN push zone.",
@@ -36,23 +27,10 @@ const defined = defineCrudResource<
   listKey: "push_zones",
   wrapKey: "push_zone",
   getPath: (id) => `/cdns/push-zones/${id}`,
-  
-  
-  
+
   replaceOnChange: [],
   toCreateBody: (props) =>
     compact({
-    label: props.label,
-    vanity_domain: props.vanityDomain,
-    ssl: props.ssl,
-    cors: props.cors,
-    gzip: props.gzip,
-    block_ai: props.blockAi,
-    block_bad_bots: props.blockBadBots,
-    }),
-  toUpdateBody: (props, live) =>
-    pickChanged(
-      {
       label: props.label,
       vanity_domain: props.vanityDomain,
       ssl: props.ssl,
@@ -60,11 +38,22 @@ const defined = defineCrudResource<
       gzip: props.gzip,
       block_ai: props.blockAi,
       block_bad_bots: props.blockBadBots,
+    }),
+  toUpdateBody: (props, live) =>
+    pickChanged(
+      {
+        label: props.label,
+        vanity_domain: props.vanityDomain,
+        ssl: props.ssl,
+        cors: props.cors,
+        gzip: props.gzip,
+        block_ai: props.blockAi,
+        block_bad_bots: props.blockBadBots,
       },
       live,
       ["label", "vanity_domain", "ssl", "cors", "gzip", "block_ai", "block_bad_bots"],
     ),
-  toAttributes: (live, props) => ({
+  toAttributes: (live, _props) => ({
     id: live.id as string,
     status: live.status as string,
     dateCreated: live.date_created as string,

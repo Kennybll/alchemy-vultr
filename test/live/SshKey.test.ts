@@ -3,16 +3,12 @@
  *
  * Run: `CI=1 VULTR_API_KEY=... bun run test:live`
  */
-import { beforeAll, expect, test as bunTest } from "bun:test";
+import { beforeAll, test as bunTest, expect } from "bun:test";
 import * as Test from "alchemy/Test/Bun";
 import * as Effect from "effect/Effect";
 import * as Vultr from "../../src/index.ts";
-import {
-  clientGet,
-  hasApiKey,
-  probeAuthenticatedAccess,
-} from "./helpers.ts";
 import type { JsonObject } from "../../src/internal/defineResource.ts";
+import { clientGet, hasApiKey, probeAuthenticatedAccess } from "./helpers.ts";
 
 const { test } = Test.make({
   providers: Vultr.providers(),

@@ -35,8 +35,7 @@ const defined = defineNestedCrudResource<
   listPath: (vpcId) => `/vpcs/${vpcId}/nat-gateways`,
   getPath: (vpcId, id) => `/vpcs/${vpcId}/nat-gateways/${id}`,
   toCreateBody: (props) => compact({ label: props.label }),
-  toUpdateBody: (props, live) =>
-    pickChanged({ label: props.label }, live, ["label"]),
+  toUpdateBody: (props, live) => pickChanged({ label: props.label }, live, ["label"]),
   toAttributes: (live, vpcId, props) => ({
     id: String(live.id ?? ""),
     vpcId,

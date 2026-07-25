@@ -15,7 +15,5 @@ export const reveal = (
  * Wrap a live secret attribute. Empty / missing values stay empty strings
  * wrapped so attrs stay typed as Redacted.
  */
-export const redact = (
-  value: unknown,
-): Redacted.Redacted<string> =>
+export const redact = (value: unknown): Redacted.Redacted<string> =>
   Redacted.make(typeof value === "string" ? value : String(value ?? ""));

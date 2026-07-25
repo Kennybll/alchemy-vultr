@@ -3,7 +3,7 @@ import { isResolved } from "alchemy/Diff";
 import * as Provider from "alchemy/Provider";
 import * as Effect from "effect/Effect";
 import { catchNotFound, VultrClient } from "../internal/Client.ts";
-import { resourceId, type JsonObject } from "../internal/defineResource.ts";
+import { type JsonObject, resourceId } from "../internal/defineResource.ts";
 import { listAcrossParents } from "../internal/listAcross.ts";
 import type { Providers } from "../Providers.ts";
 
@@ -54,10 +54,7 @@ export const Ipv4Provider = () =>
         }),
       diff: Effect.fn(function* ({ news, olds }) {
         if (!isResolved(news)) return undefined;
-        if (
-          resourceId(news.instance) !== resourceId(olds.instance) ||
-          news.ip !== olds.ip
-        ) {
+        if (resourceId(news.instance) !== resourceId(olds.instance) || news.ip !== olds.ip) {
           return { action: "replace" as const };
         }
         return undefined;
@@ -66,10 +63,7 @@ export const Ipv4Provider = () =>
         if (!output?.ip || !output.instanceId) return undefined;
         const client = yield* yield* VultrClient;
         const items = yield* catchNotFound(
-          client.listAll<JsonObject>(
-            `/instances/${output.instanceId}/ipv4`,
-            "ipv4s",
-          ),
+          client.listAll<JsonObject>(`/instances/${output.instanceId}/ipv4`, "ipv4s"),
         );
         if (!items) return undefined;
         const live = items.find((item) => item.ip === output.ip);
@@ -98,10 +92,9 @@ export const Ipv4Provider = () =>
         const client = yield* yield* VultrClient;
         // Reset to Vultr default PTR — treat not-found as already reset.
         yield* catchNotFound(
-          client.post(
-            `/instances/${output.instanceId}/ipv4/reverse/default`,
-            { body: { ip: output.ip } },
-          ),
+          client.post(`/instances/${output.instanceId}/ipv4/reverse/default`, {
+            body: { ip: output.ip },
+          }),
         );
       }),
     }),

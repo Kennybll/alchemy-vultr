@@ -1,9 +1,4 @@
-import {
-  compact,
-  defineCrudResource,
-  pickChanged,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
 
 export interface OidcIssuerProps {
   name: string;
@@ -15,11 +10,7 @@ export type OidcIssuerAttributes = {
   dateCreated: string;
 };
 
-const defined = defineCrudResource<
-  "Vultr.Oidc.Issuer",
-  OidcIssuerProps,
-  OidcIssuerAttributes
->({
+const defined = defineCrudResource<"Vultr.Oidc.Issuer", OidcIssuerProps, OidcIssuerAttributes>({
   type: "Vultr.Oidc.Issuer",
   aliases: ["Vultr.OidcIssuer"],
   description: "A Vultr OIDC issuer.",
@@ -29,23 +20,21 @@ const defined = defineCrudResource<
   listKey: "issuers",
   wrapKey: "issuer",
   getPath: (id) => `/oidc/issuers/${id}`,
-  
-  
-  
+
   replaceOnChange: [],
   toCreateBody: (props) =>
     compact({
-    name: props.name,
+      name: props.name,
     }),
   toUpdateBody: (props, live) =>
     pickChanged(
       {
-      name: props.name,
+        name: props.name,
       },
       live,
       ["name"],
     ),
-  toAttributes: (live, props) => ({
+  toAttributes: (live, _props) => ({
     id: live.id as string,
     issuerUrl: live.issuer_url as string,
     dateCreated: live.date_created as string,

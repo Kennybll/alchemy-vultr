@@ -1,9 +1,6 @@
 import type * as Duration from "effect/Duration";
-import * as Redacted from "effect/Redacted";
-import {
-  compact,
-  defineCrudResource,
-} from "../internal/defineResource.ts";
+import type * as Redacted from "effect/Redacted";
+import { compact, defineCrudResource } from "../internal/defineResource.ts";
 import { toWireSeconds } from "../internal/duration.ts";
 import { redact } from "../internal/redacted.ts";
 
@@ -22,11 +19,7 @@ export type OidcTokenAttributes = {
   dateCreated: string;
 };
 
-const defined = defineCrudResource<
-  "Vultr.Oidc.Token",
-  OidcTokenProps,
-  OidcTokenAttributes
->({
+const defined = defineCrudResource<"Vultr.Oidc.Token", OidcTokenProps, OidcTokenAttributes>({
   type: "Vultr.Oidc.Token",
   aliases: ["Vultr.OidcToken"],
   stables: ["id"],
@@ -41,8 +34,7 @@ const defined = defineCrudResource<
     compact({
       issuer_id: props.issuerId,
       name: props.name,
-      ttl:
-        typeof props.ttl === "number" ? props.ttl : toWireSeconds(props.ttl),
+      ttl: typeof props.ttl === "number" ? props.ttl : toWireSeconds(props.ttl),
     }),
   toAttributes: (live, props) => ({
     id: String(live.id ?? ""),

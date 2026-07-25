@@ -3,7 +3,7 @@ import { isResolved } from "alchemy/Diff";
 import * as Provider from "alchemy/Provider";
 import * as Effect from "effect/Effect";
 import { catchNotFound, VultrClient } from "../internal/Client.ts";
-import { resourceId, type JsonObject } from "../internal/defineResource.ts";
+import { type JsonObject, resourceId } from "../internal/defineResource.ts";
 import { listAcrossParents } from "../internal/listAcross.ts";
 import type { Providers } from "../Providers.ts";
 
@@ -86,10 +86,7 @@ export const Ipv4Provider = () =>
         const instanceId = resourceId(news.instance);
 
         if (output?.ip) {
-          const items = yield* client.listAll<JsonObject>(
-            `/instances/${instanceId}/ipv4`,
-            "ipv4s",
-          );
+          const items = yield* client.listAll<JsonObject>(`/instances/${instanceId}/ipv4`, "ipv4s");
           const existing = items.find((item) => item.ip === output.ip);
           if (existing) {
             return {
@@ -103,10 +100,9 @@ export const Ipv4Provider = () =>
           }
         }
 
-        const created = yield* client.post<JsonObject>(
-          `/instances/${instanceId}/ipv4`,
-          { body: { reboot: news.reboot ?? true } },
-        );
+        const created = yield* client.post<JsonObject>(`/instances/${instanceId}/ipv4`, {
+          body: { reboot: news.reboot ?? true },
+        });
         const live = (created.ipv4 ?? created) as JsonObject;
         return {
           id: String(live.ip ?? ""),
@@ -120,9 +116,7 @@ export const Ipv4Provider = () =>
       delete: Effect.fn(function* ({ output }) {
         if (!output.ip || !output.instanceId) return;
         const client = yield* yield* VultrClient;
-        yield* catchNotFound(
-          client.del(`/instances/${output.instanceId}/ipv4/${output.ip}`),
-        );
+        yield* catchNotFound(client.del(`/instances/${output.instanceId}/ipv4/${output.ip}`));
       }),
     }),
   );

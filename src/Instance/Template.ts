@@ -1,9 +1,4 @@
-import {
-  compact,
-  defineCrudResource,
-  pickChanged,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
 
 export interface InstanceTemplateProps {
   label: string;
@@ -40,42 +35,49 @@ const defined = defineCrudResource<
   listKey: "templates",
   wrapKey: "template",
   getPath: (id) => `/instances/templates/${id}`,
-  
-  
-  
+
   replaceOnChange: ["region", "osId", "appId", "imageId", "snapshotId"],
   toCreateBody: (props) =>
     compact({
-    label: props.label,
-    description: props.description,
-    region: props.region,
-    plan: props.plan,
-    os_id: props.osId,
-    app_id: props.appId,
-    image_id: props.imageId,
-    snapshot_id: props.snapshotId,
-    user_data: props.userData,
-    ssh_key_ids: props.sshKeyIds,
-    script_id: props.scriptId,
-    firewall_group_id: props.firewallGroupId,
-    tags: props.tags,
-    }),
-  toUpdateBody: (props, live) =>
-    pickChanged(
-      {
       label: props.label,
       description: props.description,
+      region: props.region,
       plan: props.plan,
+      os_id: props.osId,
+      app_id: props.appId,
+      image_id: props.imageId,
+      snapshot_id: props.snapshotId,
       user_data: props.userData,
       ssh_key_ids: props.sshKeyIds,
       script_id: props.scriptId,
       firewall_group_id: props.firewallGroupId,
       tags: props.tags,
+    }),
+  toUpdateBody: (props, live) =>
+    pickChanged(
+      {
+        label: props.label,
+        description: props.description,
+        plan: props.plan,
+        user_data: props.userData,
+        ssh_key_ids: props.sshKeyIds,
+        script_id: props.scriptId,
+        firewall_group_id: props.firewallGroupId,
+        tags: props.tags,
       },
       live,
-      ["label", "description", "plan", "user_data", "ssh_key_ids", "script_id", "firewall_group_id", "tags"],
+      [
+        "label",
+        "description",
+        "plan",
+        "user_data",
+        "ssh_key_ids",
+        "script_id",
+        "firewall_group_id",
+        "tags",
+      ],
     ),
-  toAttributes: (live, props) => ({
+  toAttributes: (live, _props) => ({
     id: live.id as string,
     dateCreated: live.date_created as string,
   }),

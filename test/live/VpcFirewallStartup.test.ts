@@ -6,13 +6,8 @@ import { beforeAll, expect } from "bun:test";
 import * as Test from "alchemy/Test/Bun";
 import * as Effect from "effect/Effect";
 import * as Vultr from "../../src/index.ts";
-import {
-  clientGet,
-  clientListAll,
-  hasApiKey,
-  probeAuthenticatedAccess,
-} from "./helpers.ts";
 import type { JsonObject } from "../../src/internal/defineResource.ts";
+import { clientGet, clientListAll, hasApiKey, probeAuthenticatedAccess } from "./helpers.ts";
 
 const { test } = Test.make({
   providers: Vultr.providers(),
@@ -51,9 +46,7 @@ test.provider.skipIf(!hasApiKey)(
       expect(String(wrap.id)).toBe(created.id);
       expect(String(wrap.name)).toBe("alchemy-vultr-live-boot");
       // Wire format is base64 (OpenAPI/docs often under-specify this).
-      const decoded = Buffer.from(String(wrap.script ?? ""), "base64").toString(
-        "utf8",
-      );
+      const decoded = Buffer.from(String(wrap.script ?? ""), "base64").toString("utf8");
       expect(decoded).toContain("alchemy-vultr-live");
 
       const updated = yield* stack.deploy(
@@ -156,10 +149,7 @@ test.provider.skipIf(!hasApiKey)(
       const groups = yield* clientListAll("/firewalls", "firewall_groups");
       expect(groups.some((g) => String(g.id) === deployed.group.id)).toBe(true);
 
-      const rules = yield* clientListAll(
-        `/firewalls/${deployed.group.id}/rules`,
-        "firewall_rules",
-      );
+      const rules = yield* clientListAll(`/firewalls/${deployed.group.id}/rules`, "firewall_rules");
       expect(rules.some((r) => String(r.id) === deployed.rule.id)).toBe(true);
 
       yield* stack.destroy();

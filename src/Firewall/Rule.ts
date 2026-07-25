@@ -3,11 +3,7 @@ import { isResolved } from "alchemy/Diff";
 import * as Provider from "alchemy/Provider";
 import * as Effect from "effect/Effect";
 import { catchNotFound, VultrClient } from "../internal/Client.ts";
-import {
-  compact,
-  resourceId,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import { compact, type JsonObject, resourceId } from "../internal/defineResource.ts";
 import { listAcrossParents } from "../internal/listAcross.ts";
 import type { Providers } from "../Providers.ts";
 
@@ -67,8 +63,7 @@ export const RuleProvider = () =>
         }),
       diff: Effect.fn(function* ({ news, olds }) {
         if (!isResolved(news)) return undefined;
-        const groupChanged =
-          resourceId(news.firewallGroup) !== resourceId(olds.firewallGroup);
+        const groupChanged = resourceId(news.firewallGroup) !== resourceId(olds.firewallGroup);
         if (
           groupChanged ||
           news.ipType !== olds.ipType ||
@@ -86,9 +81,7 @@ export const RuleProvider = () =>
         if (!output?.id || !output.firewallGroupId) return undefined;
         const client = yield* yield* VultrClient;
         const response = yield* catchNotFound(
-          client.get<JsonObject>(
-            `/firewalls/${output.firewallGroupId}/rules/${output.id}`,
-          ),
+          client.get<JsonObject>(`/firewalls/${output.firewallGroupId}/rules/${output.id}`),
         );
         if (!response) return undefined;
         const live = (response.firewall_rule ?? response) as JsonObject;
@@ -106,9 +99,7 @@ export const RuleProvider = () =>
 
         if (output?.id) {
           const existing = yield* catchNotFound(
-            client.get<JsonObject>(
-              `/firewalls/${groupId}/rules/${output.id}`,
-            ),
+            client.get<JsonObject>(`/firewalls/${groupId}/rules/${output.id}`),
           );
           if (existing) {
             const live = (existing.firewall_rule ?? existing) as JsonObject;
@@ -122,20 +113,17 @@ export const RuleProvider = () =>
           }
         }
 
-        const created = yield* client.post<JsonObject>(
-          `/firewalls/${groupId}/rules`,
-          {
-            body: compact({
-              ip_type: news.ipType,
-              protocol: news.protocol,
-              subnet: news.subnet,
-              subnet_size: news.subnetSize,
-              port: news.port,
-              source: news.source,
-              notes: news.notes,
-            }),
-          },
-        );
+        const created = yield* client.post<JsonObject>(`/firewalls/${groupId}/rules`, {
+          body: compact({
+            ip_type: news.ipType,
+            protocol: news.protocol,
+            subnet: news.subnet,
+            subnet_size: news.subnetSize,
+            port: news.port,
+            source: news.source,
+            notes: news.notes,
+          }),
+        });
         const live = (created.firewall_rule ?? created) as JsonObject;
         return {
           id: String(live.id ?? ""),
@@ -148,11 +136,7 @@ export const RuleProvider = () =>
       delete: Effect.fn(function* ({ output }) {
         if (!output.id || !output.firewallGroupId) return;
         const client = yield* yield* VultrClient;
-        yield* catchNotFound(
-          client.del(
-            `/firewalls/${output.firewallGroupId}/rules/${output.id}`,
-          ),
-        );
+        yield* catchNotFound(client.del(`/firewalls/${output.firewallGroupId}/rules/${output.id}`));
       }),
     }),
   );

@@ -3,11 +3,7 @@ import { isResolved } from "alchemy/Diff";
 import * as Provider from "alchemy/Provider";
 import * as Effect from "effect/Effect";
 import { catchNotFound, VultrClient } from "../internal/Client.ts";
-import {
-  compact,
-  resourceId,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import { compact, type JsonObject, resourceId } from "../internal/defineResource.ts";
 import { listAcrossParents } from "../internal/listAcross.ts";
 import type { Providers } from "../Providers.ts";
 
@@ -40,20 +36,14 @@ const readBucket = (objectStorageId: string, name: string) =>
   Effect.gen(function* () {
     const client = yield* yield* VultrClient;
     const response = yield* catchNotFound(
-      client.get<JsonObject>(
-        `/object-storage/${objectStorageId}/buckets/${name}`,
-      ),
+      client.get<JsonObject>(`/object-storage/${objectStorageId}/buckets/${name}`),
     );
     if (!response) {
       // Some Vultr plans only expose list; fall back to list+match.
       const listed = yield* catchNotFound(
-        client.get<{ buckets?: JsonObject[] }>(
-          `/object-storage/${objectStorageId}/buckets`,
-        ),
+        client.get<{ buckets?: JsonObject[] }>(`/object-storage/${objectStorageId}/buckets`),
       );
-      const match = listed?.buckets?.find(
-        (bucket) => String(bucket.name ?? "") === name,
-      );
+      const match = listed?.buckets?.find((bucket) => String(bucket.name ?? "") === name);
       if (!match) return undefined;
     }
     return {
@@ -72,8 +62,7 @@ export const BucketProvider = () =>
         listAcrossParents({
           parentPath: "/object-storage",
           parentKey: "object_storages",
-          childPath: (objectStorageId) =>
-            `/object-storage/${objectStorageId}/buckets`,
+          childPath: (objectStorageId) => `/object-storage/${objectStorageId}/buckets`,
           childKey: "buckets",
           map: (live, objectStorageId) => {
             const name = String(live.name ?? "");
@@ -102,9 +91,7 @@ export const BucketProvider = () =>
         const objectStorageId = resourceId(news.objectStorage);
 
         // Observe → ensure → sync (existence-only).
-        let observed = output?.name
-          ? yield* readBucket(objectStorageId, output.name)
-          : undefined;
+        let observed = output?.name ? yield* readBucket(objectStorageId, output.name) : undefined;
         if (!observed || observed.name !== news.name) {
           observed = yield* readBucket(objectStorageId, news.name);
         }
@@ -114,9 +101,7 @@ export const BucketProvider = () =>
             .post<JsonObject>(`/object-storage/${objectStorageId}/buckets`, {
               body: compact({ name: news.name }),
             })
-            .pipe(
-              Effect.catchTag("VultrConflict", () => Effect.void),
-            );
+            .pipe(Effect.catchTag("VultrConflict", () => Effect.void));
           observed = {
             id: `${objectStorageId}:${news.name}`,
             objectStorageId,
@@ -129,9 +114,7 @@ export const BucketProvider = () =>
         if (!output.name || !output.objectStorageId) return;
         const client = yield* yield* VultrClient;
         yield* catchNotFound(
-          client.del(
-            `/object-storage/${output.objectStorageId}/buckets/${output.name}`,
-          ),
+          client.del(`/object-storage/${output.objectStorageId}/buckets/${output.name}`),
         );
       }),
     }),

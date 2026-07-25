@@ -1,9 +1,4 @@
-import {
-  compact,
-  defineCrudResource,
-  pickChanged,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
 
 export interface ReservedIpProps {
   region: string;
@@ -32,25 +27,23 @@ const defined = defineCrudResource<
   listKey: "reserved_ips",
   wrapKey: "reserved_ip",
   getPath: (id) => `/reserved-ips/${id}`,
-  
-  
-  
+
   replaceOnChange: ["region", "ipType"],
   toCreateBody: (props) =>
     compact({
-    region: props.region,
-    ip_type: props.ipType,
-    label: props.label,
+      region: props.region,
+      ip_type: props.ipType,
+      label: props.label,
     }),
   toUpdateBody: (props, live) =>
     pickChanged(
       {
-      label: props.label,
+        label: props.label,
       },
       live,
       ["label"],
     ),
-  toAttributes: (live, props) => ({
+  toAttributes: (live, _props) => ({
     id: live.id as string,
     subnet: live.subnet as string,
     subnetSize: live.subnet_size as number,

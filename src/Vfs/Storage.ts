@@ -1,9 +1,4 @@
-import {
-  compact,
-  defineCrudResource,
-  pickChanged,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
 
 export interface VirtualFileSystemStorageProps {
   region: string;
@@ -33,27 +28,25 @@ const defined = defineCrudResource<
   listKey: "vfs_storages",
   wrapKey: "vfs_storage",
   getPath: (id) => `/vfs/${id}`,
-  
-  
-  
+
   replaceOnChange: ["region", "diskType"],
   toCreateBody: (props) =>
     compact({
-    region: props.region,
-    label: props.label,
-    storage_size: props.storageSize,
-    disk_type: props.diskType,
+      region: props.region,
+      label: props.label,
+      storage_size: props.storageSize,
+      disk_type: props.diskType,
     }),
   toUpdateBody: (props, live) =>
     pickChanged(
       {
-      label: props.label,
-      storage_size: props.storageSize,
+        label: props.label,
+        storage_size: props.storageSize,
       },
       live,
       ["label", "storage_size"],
     ),
-  toAttributes: (live, props) => ({
+  toAttributes: (live, _props) => ({
     id: live.id as string,
     status: live.status as string,
     dateCreated: live.date_created as string,

@@ -3,12 +3,7 @@ import { isResolved } from "alchemy/Diff";
 import * as Provider from "alchemy/Provider";
 import * as Effect from "effect/Effect";
 import { catchNotFound, VultrClient } from "../internal/Client.ts";
-import {
-  compact,
-  pickChanged,
-  resourceId,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import { compact, type JsonObject, pickChanged, resourceId } from "../internal/defineResource.ts";
 import { listAcrossParents } from "../internal/listAcross.ts";
 import type { Providers } from "../Providers.ts";
 
@@ -63,8 +58,7 @@ export const NodePoolProvider = () =>
         listAcrossParents({
           parentPath: "/kubernetes/clusters",
           parentKey: "vke_clusters",
-          childPath: (clusterId) =>
-            `/kubernetes/clusters/${clusterId}/node-pools`,
+          childPath: (clusterId) => `/kubernetes/clusters/${clusterId}/node-pools`,
           childKey: "node_pools",
           map: (live, clusterId) => ({
             id: String(live.id ?? ""),
@@ -78,10 +72,7 @@ export const NodePoolProvider = () =>
         }),
       diff: Effect.fn(function* ({ news, olds }) {
         if (!isResolved(news)) return undefined;
-        if (
-          resourceId(news.cluster) !== resourceId(olds.cluster) ||
-          news.plan !== olds.plan
-        ) {
+        if (resourceId(news.cluster) !== resourceId(olds.cluster) || news.plan !== olds.plan) {
           return { action: "replace" as const };
         }
         return undefined;
@@ -113,9 +104,7 @@ export const NodePoolProvider = () =>
         let live: JsonObject | undefined;
         if (output?.id) {
           const response = yield* catchNotFound(
-            client.get<JsonObject>(
-              `/kubernetes/clusters/${clusterId}/node-pools/${output.id}`,
-            ),
+            client.get<JsonObject>(`/kubernetes/clusters/${clusterId}/node-pools/${output.id}`),
           );
           if (response) {
             live = (response.node_pool ?? response) as JsonObject;
@@ -151,14 +140,7 @@ export const NodePoolProvider = () =>
               max_nodes: news.maxNodes,
             },
             live,
-            [
-              "node_quantity",
-              "label",
-              "tag",
-              "auto_scaler",
-              "min_nodes",
-              "max_nodes",
-            ],
+            ["node_quantity", "label", "tag", "auto_scaler", "min_nodes", "max_nodes"],
           );
           if (Object.keys(body).length > 0) {
             const updated = yield* client.patch<JsonObject>(
@@ -183,9 +165,7 @@ export const NodePoolProvider = () =>
         if (!output.id || !output.clusterId) return;
         const client = yield* yield* VultrClient;
         yield* catchNotFound(
-          client.del(
-            `/kubernetes/clusters/${output.clusterId}/node-pools/${output.id}`,
-          ),
+          client.del(`/kubernetes/clusters/${output.clusterId}/node-pools/${output.id}`),
         );
       }),
     }),

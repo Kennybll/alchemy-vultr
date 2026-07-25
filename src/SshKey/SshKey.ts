@@ -1,12 +1,9 @@
-import { Resource, createPhysicalName } from "alchemy";
+import { createPhysicalName, Resource } from "alchemy";
 import { isResolved } from "alchemy/Diff";
 import * as Provider from "alchemy/Provider";
 import * as Effect from "effect/Effect";
 import { catchNotFound, VultrClient } from "../internal/Client.ts";
-import {
-  pickChanged,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import { type JsonObject, pickChanged } from "../internal/defineResource.ts";
 import type { Providers } from "../Providers.ts";
 
 export interface SshKeyProps {
@@ -47,8 +44,7 @@ const resolveName = (id: string, name: string | undefined) =>
     ? Effect.succeed(name)
     : createPhysicalName({ id, lowercase: true, maxLength: 128 });
 
-const unwrap = (response: JsonObject): JsonObject =>
-  (response.ssh_key ?? response) as JsonObject;
+const unwrap = (response: JsonObject): JsonObject => (response.ssh_key ?? response) as JsonObject;
 
 const toAttrs = (live: JsonObject, fallbackName?: string): SshKeyAttrs => ({
   id: String(live.id ?? ""),
@@ -87,10 +83,7 @@ export const SshKeyProvider = () =>
       stables: ["id"],
       list: Effect.fn(function* () {
         const client = yield* yield* VultrClient;
-        const items = yield* client.listAll<JsonObject>(
-          "/ssh-keys",
-          "ssh_keys",
-        );
+        const items = yield* client.listAll<JsonObject>("/ssh-keys", "ssh_keys");
         return items.map((live) => toAttrs(live));
       }),
       diff: Effect.fn(function* ({ news, olds }) {
@@ -104,9 +97,7 @@ export const SshKeyProvider = () =>
         const client = yield* yield* VultrClient;
         // Prefer cached id (state recovery); otherwise adopt by physical name.
         if (output?.id) {
-          const response = yield* catchNotFound(
-            client.get<JsonObject>(`/ssh-keys/${output.id}`),
-          );
+          const response = yield* catchNotFound(client.get<JsonObject>(`/ssh-keys/${output.id}`));
           if (!response) return undefined;
           return toAttrs(unwrap(response));
         }
@@ -123,16 +114,11 @@ export const SshKeyProvider = () =>
 
         let live: JsonObject | undefined;
         if (output?.id) {
-          const response = yield* catchNotFound(
-            client.get<JsonObject>(`/ssh-keys/${output.id}`),
-          );
+          const response = yield* catchNotFound(client.get<JsonObject>(`/ssh-keys/${output.id}`));
           if (response) live = unwrap(response);
         }
         if (!live) {
-          const items = yield* client.listAll<JsonObject>(
-            "/ssh-keys",
-            "ssh_keys",
-          );
+          const items = yield* client.listAll<JsonObject>("/ssh-keys", "ssh_keys");
           const match = items.find((item) => String(item.name ?? "") === name);
           if (match) live = match;
         }
@@ -155,9 +141,7 @@ export const SshKeyProvider = () =>
           if (Object.keys(body).length > 0) {
             const path = `/ssh-keys/${String(live.id)}`;
             const updated = yield* client.patch<JsonObject>(path, { body });
-            live = updated ? unwrap(updated) : unwrap(
-              yield* client.get<JsonObject>(path),
-            );
+            live = updated ? unwrap(updated) : unwrap(yield* client.get<JsonObject>(path));
           }
         }
 

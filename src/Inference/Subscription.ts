@@ -1,10 +1,5 @@
-import * as Redacted from "effect/Redacted";
-import {
-  compact,
-  defineCrudResource,
-  pickChanged,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import type * as Redacted from "effect/Redacted";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
 import { redact } from "../internal/redacted.ts";
 
 export interface InferenceProps {
@@ -31,23 +26,21 @@ const defined = defineCrudResource<
   listKey: "subscriptions",
   wrapKey: "subscription",
   getPath: (id) => `/inference/${id}`,
-  
-  
-  
+
   replaceOnChange: [],
   toCreateBody: (props) =>
     compact({
-    label: props.label,
+      label: props.label,
     }),
   toUpdateBody: (props, live) =>
     pickChanged(
       {
-      label: props.label,
+        label: props.label,
       },
       live,
       ["label"],
     ),
-  toAttributes: (live, props) => ({
+  toAttributes: (live, _props) => ({
     id: live.id as string,
     dateCreated: live.date_created as string,
     apiKey: redact(live.api_key),

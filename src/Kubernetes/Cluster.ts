@@ -1,9 +1,4 @@
-import {
-  compact,
-  defineCrudResource,
-  pickChanged,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
 
 export interface KubernetesProps {
   region: string;
@@ -11,7 +6,15 @@ export interface KubernetesProps {
   label?: string;
   haControlplanes?: boolean;
   /** Initial node pools created with the cluster. */
-  nodePools?: ReadonlyArray<{ nodeQuantity: number; label: string; plan: string; autoScaler?: boolean; minNodes?: number; maxNodes?: number; tags?: ReadonlyArray<string> }>;
+  nodePools?: ReadonlyArray<{
+    nodeQuantity: number;
+    label: string;
+    plan: string;
+    autoScaler?: boolean;
+    minNodes?: number;
+    maxNodes?: number;
+    tags?: ReadonlyArray<string>;
+  }>;
 }
 
 export type KubernetesAttributes = {
@@ -23,11 +26,7 @@ export type KubernetesAttributes = {
   endpoint: string;
 };
 
-const defined = defineCrudResource<
-  "Vultr.Cluster.Cluster",
-  KubernetesProps,
-  KubernetesAttributes
->({
+const defined = defineCrudResource<"Vultr.Cluster.Cluster", KubernetesProps, KubernetesAttributes>({
   type: "Vultr.Cluster.Cluster",
   aliases: ["Vultr.Kubernetes"],
   description: "A Vultr Cluster Engine (VKE) cluster.",
@@ -37,27 +36,25 @@ const defined = defineCrudResource<
   listKey: "vke_clusters",
   wrapKey: "vke_cluster",
   getPath: (id) => `/kubernetes/clusters/${id}`,
-  
-  
-  
+
   replaceOnChange: ["region", "version", "haControlplanes"],
   toCreateBody: (props) =>
     compact({
-    region: props.region,
-    version: props.version,
-    label: props.label,
-    ha_controlplanes: props.haControlplanes,
-    node_pools: props.nodePools,
+      region: props.region,
+      version: props.version,
+      label: props.label,
+      ha_controlplanes: props.haControlplanes,
+      node_pools: props.nodePools,
     }),
   toUpdateBody: (props, live) =>
     pickChanged(
       {
-      label: props.label,
+        label: props.label,
       },
       live,
       ["label"],
     ),
-  toAttributes: (live, props) => ({
+  toAttributes: (live, _props) => ({
     id: live.id as string,
     status: live.status as string,
     dateCreated: live.date_created as string,

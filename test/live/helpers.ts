@@ -1,8 +1,8 @@
 import * as Effect from "effect/Effect";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { fromApiKey } from "../../src/Credentials.ts";
-import { VultrClient, VultrClientLive } from "../../src/internal/Client.ts";
 import type { VultrClientError } from "../../src/internal/Client.ts";
+import { VultrClient, VultrClientLive } from "../../src/internal/Client.ts";
 import type { JsonObject } from "../../src/internal/defineResource.ts";
 
 export const apiKey = process.env.VULTR_API_KEY;
@@ -35,9 +35,7 @@ export const probeAuthenticatedAccess = (): Promise<{
     Effect.runPromise,
   );
 
-export const withClient = <A>(
-  effect: Effect.Effect<A, VultrClientError, VultrClient>,
-) =>
+export const withClient = <A>(effect: Effect.Effect<A, VultrClientError, VultrClient>) =>
   effect.pipe(
     Effect.provide(VultrClientLive),
     Effect.provide(fromApiKey(apiKey ?? "missing")),
@@ -52,10 +50,7 @@ export const clientGet = <A = JsonObject>(path: string) =>
     }),
   );
 
-export const clientListAll = <A = JsonObject>(
-  path: string,
-  key: string,
-) =>
+export const clientListAll = <A = JsonObject>(path: string, key: string) =>
   withClient(
     Effect.gen(function* () {
       const client = yield* yield* VultrClient;

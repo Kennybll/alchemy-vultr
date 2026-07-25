@@ -1,9 +1,4 @@
-import {
-  compact,
-  defineCrudResource,
-  pickChanged,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
 
 export interface OrganizationProps {
   name: string;
@@ -28,23 +23,21 @@ const defined = defineCrudResource<
   listKey: "organizations",
   wrapKey: "organization",
   getPath: (id) => `/organizations/${id}`,
-  
-  
-  
+
   replaceOnChange: [],
   toCreateBody: (props) =>
     compact({
-    name: props.name,
+      name: props.name,
     }),
   toUpdateBody: (props, live) =>
     pickChanged(
       {
-      name: props.name,
+        name: props.name,
       },
       live,
       ["name"],
     ),
-  toAttributes: (live, props) => ({
+  toAttributes: (live, _props) => ({
     id: live.id as string,
     dateCreated: live.date_created as string,
   }),

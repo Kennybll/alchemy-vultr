@@ -1,9 +1,4 @@
-import {
-  compact,
-  defineCrudResource,
-  pickChanged,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
 
 export interface FirewallGroupProps {
   description?: string;
@@ -32,23 +27,21 @@ const defined = defineCrudResource<
   listKey: "firewall_groups",
   wrapKey: "firewall_group",
   getPath: (id) => `/firewalls/${id}`,
-  
-  
-  
+
   replaceOnChange: [],
   toCreateBody: (props) =>
     compact({
-    description: props.description,
+      description: props.description,
     }),
   toUpdateBody: (props, live) =>
     pickChanged(
       {
-      description: props.description,
+        description: props.description,
       },
       live,
       ["description"],
     ),
-  toAttributes: (live, props) => ({
+  toAttributes: (live, _props) => ({
     id: live.id as string,
     dateCreated: live.date_created as string,
     dateModified: live.date_modified as string,

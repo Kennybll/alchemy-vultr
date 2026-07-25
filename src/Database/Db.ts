@@ -1,8 +1,4 @@
-import {
-  compact,
-  defineNestedCrudResource,
-  resourceId,
-} from "../internal/nestedResource.ts";
+import { compact, defineNestedCrudResource, resourceId } from "../internal/nestedResource.ts";
 
 export interface DatabaseDbProps {
   database: string | { readonly id: string };

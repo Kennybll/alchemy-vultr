@@ -1,9 +1,4 @@
-import {
-  compact,
-  defineCrudResource,
-  pickChanged,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
 
 export interface SnapshotProps {
   instanceId: string;
@@ -20,11 +15,7 @@ export type SnapshotAttributes = {
   appId: number;
 };
 
-const defined = defineCrudResource<
-  "Vultr.Snapshot.Snapshot",
-  SnapshotProps,
-  SnapshotAttributes
->({
+const defined = defineCrudResource<"Vultr.Snapshot.Snapshot", SnapshotProps, SnapshotAttributes>({
   type: "Vultr.Snapshot.Snapshot",
   aliases: ["Vultr.Snapshot"],
   description: "A snapshot of a Vultr instance.",
@@ -34,24 +25,22 @@ const defined = defineCrudResource<
   listKey: "snapshots",
   wrapKey: "snapshot",
   getPath: (id) => `/snapshots/${id}`,
-  
-  
-  
+
   replaceOnChange: ["instanceId"],
   toCreateBody: (props) =>
     compact({
-    instance_id: props.instanceId,
-    description: props.description,
+      instance_id: props.instanceId,
+      description: props.description,
     }),
   toUpdateBody: (props, live) =>
     pickChanged(
       {
-      description: props.description,
+        description: props.description,
       },
       live,
       ["description"],
     ),
-  toAttributes: (live, props) => ({
+  toAttributes: (live, _props) => ({
     id: live.id as string,
     dateCreated: live.date_created as string,
     size: live.size as number,

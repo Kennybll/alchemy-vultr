@@ -1,4 +1,4 @@
-import * as Redacted from "effect/Redacted";
+import type * as Redacted from "effect/Redacted";
 import {
   compact,
   defineNestedCrudResource,

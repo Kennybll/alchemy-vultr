@@ -1,9 +1,4 @@
-import {
-  compact,
-  defineCrudResource,
-  pickChanged,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
 
 export interface IsoProps {
   url: string;
@@ -19,11 +14,7 @@ export type IsoAttributes = {
   dateCreated: string;
 };
 
-const defined = defineCrudResource<
-  "Vultr.Iso.Iso",
-  IsoProps,
-  IsoAttributes
->({
+const defined = defineCrudResource<"Vultr.Iso.Iso", IsoProps, IsoAttributes>({
   type: "Vultr.Iso.Iso",
   aliases: ["Vultr.Iso"],
   description: "A private ISO image uploaded to Vultr.",
@@ -33,23 +24,14 @@ const defined = defineCrudResource<
   listKey: "isos",
   wrapKey: "iso",
   getPath: (id) => `/iso/${id}`,
-  
-  
-  
+
   replaceOnChange: ["url"],
   toCreateBody: (props) =>
     compact({
-    url: props.url,
+      url: props.url,
     }),
-  toUpdateBody: (props, live) =>
-    pickChanged(
-      {
-
-      },
-      live,
-      [],
-    ),
-  toAttributes: (live, props) => ({
+  toUpdateBody: (_props, live) => pickChanged({}, live, []),
+  toAttributes: (live, _props) => ({
     id: live.id as string,
     filename: live.filename as string,
     size: live.size as number,

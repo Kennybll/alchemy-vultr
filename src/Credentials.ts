@@ -7,9 +7,9 @@ import * as Layer from "effect/Layer";
 import * as Redacted from "effect/Redacted";
 import {
   VULTR_AUTH_PROVIDER_NAME,
+  VultrAuth,
   type VultrAuthConfig,
   type VultrResolvedCredentials,
-  VultrAuth,
 } from "./AuthProvider.ts";
 import { DEFAULT_BASE_URL } from "./internal/constants.ts";
 
@@ -65,17 +65,14 @@ export const fromAuthProvider = (options?: { readonly baseUrl?: string }) =>
     VultrCredentials,
     Effect.gen(function* () {
       const profile = yield* AlchemyProfile;
-      const auth = yield* getAuthProvider<
-        VultrAuthConfig,
-        VultrResolvedCredentials
-      >(VULTR_AUTH_PROVIDER_NAME);
+      const auth = yield* getAuthProvider<VultrAuthConfig, VultrResolvedCredentials>(
+        VULTR_AUTH_PROVIDER_NAME,
+      );
       const profileName = yield* ALCHEMY_PROFILE;
       const ci = yield* Config.boolean("CI").pipe(Config.withDefault(false));
 
       return yield* profile.loadOrConfigure(auth, profileName, { ci }).pipe(
-        Effect.flatMap((config) =>
-          auth.read(profileName, config as VultrAuthConfig),
-        ),
+        Effect.flatMap((config) => auth.read(profileName, config as VultrAuthConfig)),
         Effect.map((creds) => ({
           apiKey: creds.apiKey,
           baseUrl: options?.baseUrl ?? DEFAULT_BASE_URL,

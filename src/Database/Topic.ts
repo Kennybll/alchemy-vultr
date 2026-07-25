@@ -1,11 +1,11 @@
 import type * as Duration from "effect/Duration";
+import { toWireHours } from "../internal/duration.ts";
 import {
   compact,
   defineNestedCrudResource,
   pickChanged,
   resourceId,
 } from "../internal/nestedResource.ts";
-import { toWireHours } from "../internal/duration.ts";
 
 export interface DatabaseTopicProps {
   database: string | { readonly id: string };
@@ -52,8 +52,7 @@ const defined = defineNestedCrudResource<
       name: props.name,
       partitions: props.partitions,
       replication: props.replication,
-      retention_hours:
-        props.retentionHours ?? toWireHours(props.retention),
+      retention_hours: props.retentionHours ?? toWireHours(props.retention),
       retention_bytes: props.retentionBytes,
     }),
   toUpdateBody: (props, live) =>

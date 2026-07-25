@@ -54,12 +54,7 @@ const defined = defineNestedCrudResource<
         user: props.user,
       },
       live,
-      [
-        "consumer_byte_rate",
-        "producer_byte_rate",
-        "request_percentage",
-        "user",
-      ],
+      ["consumer_byte_rate", "producer_byte_rate", "request_percentage", "user"],
     ),
   toAttributes: (live, databaseId, props) => ({
     id: String(live.client_id ?? props.clientId),

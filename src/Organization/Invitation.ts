@@ -1,7 +1,4 @@
-import {
-  compact,
-  defineCrudResource,
-} from "../internal/defineResource.ts";
+import { compact, defineCrudResource } from "../internal/defineResource.ts";
 
 export interface OrganizationInvitationProps {
   email: string;

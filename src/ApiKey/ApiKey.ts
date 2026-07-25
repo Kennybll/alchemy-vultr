@@ -1,10 +1,5 @@
-import * as Redacted from "effect/Redacted";
-import {
-  compact,
-  defineCrudResource,
-  pickChanged,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import type * as Redacted from "effect/Redacted";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
 import { redact } from "../internal/redacted.ts";
 
 export interface ApiKeyProps {
@@ -17,11 +12,7 @@ export type ApiKeyAttributes = {
   apiKey: Redacted.Redacted<string>;
 };
 
-const defined = defineCrudResource<
-  "Vultr.ApiKey.ApiKey",
-  ApiKeyProps,
-  ApiKeyAttributes
->({
+const defined = defineCrudResource<"Vultr.ApiKey.ApiKey", ApiKeyProps, ApiKeyAttributes>({
   type: "Vultr.ApiKey.ApiKey",
   aliases: ["Vultr.ApiKey"],
   description: "A Vultr API key.",
@@ -31,23 +22,21 @@ const defined = defineCrudResource<
   listKey: "apikeys",
   wrapKey: "apikey",
   getPath: (id) => `/apikeys/${id}`,
-  
-  
-  
+
   replaceOnChange: [],
   toCreateBody: (props) =>
     compact({
-    name: props.name,
+      name: props.name,
     }),
   toUpdateBody: (props, live) =>
     pickChanged(
       {
-      name: props.name,
+        name: props.name,
       },
       live,
       ["name"],
     ),
-  toAttributes: (live, props) => ({
+  toAttributes: (live, _props) => ({
     id: live.id as string,
     dateCreated: live.date_created as string,
     apiKey: redact(live.api_key),

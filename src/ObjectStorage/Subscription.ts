@@ -1,10 +1,5 @@
-import * as Redacted from "effect/Redacted";
-import {
-  compact,
-  defineCrudResource,
-  pickChanged,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import type * as Redacted from "effect/Redacted";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
 import { redact } from "../internal/redacted.ts";
 
 export interface ObjectStorageProps {
@@ -37,25 +32,23 @@ const defined = defineCrudResource<
   listKey: "object_storages",
   wrapKey: "object_storage",
   getPath: (id) => `/object-storage/${id}`,
-  
-  
-  
+
   replaceOnChange: ["clusterId", "tierId"],
   toCreateBody: (props) =>
     compact({
-    cluster_id: props.clusterId,
-    tier_id: props.tierId,
-    label: props.label,
+      cluster_id: props.clusterId,
+      tier_id: props.tierId,
+      label: props.label,
     }),
   toUpdateBody: (props, live) =>
     pickChanged(
       {
-      label: props.label,
+        label: props.label,
       },
       live,
       ["label"],
     ),
-  toAttributes: (live, props) => ({
+  toAttributes: (live, _props) => ({
     id: live.id as string,
     dateCreated: live.date_created as string,
     status: live.status as string,

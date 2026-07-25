@@ -24,10 +24,7 @@ export const listPlans = (options?: { type?: string }) =>
 export const listBareMetalPlans = () =>
   Effect.gen(function* () {
     const client = yield* yield* VultrClient;
-    return yield* client.listAll<JsonObject>(
-      "/plans-metal",
-      "plans_metal",
-    );
+    return yield* client.listAll<JsonObject>("/plans-metal", "plans_metal");
   });
 
 export const listOperatingSystems = () =>
@@ -47,28 +44,21 @@ export const listApplications = (options?: { type?: string }) =>
 export const listObjectStorageClusters = () =>
   Effect.gen(function* () {
     const client = yield* yield* VultrClient;
-    return yield* client.listAll<JsonObject>(
-      "/object-storage/clusters",
-      "clusters",
-    );
+    return yield* client.listAll<JsonObject>("/object-storage/clusters", "clusters");
   });
 
 export const listObjectStorageTiers = (clusterId: number) =>
   Effect.gen(function* () {
     const client = yield* yield* VultrClient;
-    return yield* client.listAll<JsonObject>(
-      `/object-storage/tiers`,
-      "tiers",
-      { query: { cluster_id: clusterId } },
-    );
+    return yield* client.listAll<JsonObject>(`/object-storage/tiers`, "tiers", {
+      query: { cluster_id: clusterId },
+    });
   });
 
 export const listKubernetesVersions = () =>
   Effect.gen(function* () {
     const client = yield* yield* VultrClient;
-    return yield* client.get<{ versions: string[] }>(
-      "/kubernetes/versions",
-    );
+    return yield* client.get<{ versions: string[] }>("/kubernetes/versions");
   });
 
 export const getAccount = () =>

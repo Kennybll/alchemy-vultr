@@ -1,15 +1,11 @@
-import { describe, expect, it } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Redacted from "effect/Redacted";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import { describe, expect, it } from "vitest";
 import { fromApiKey } from "../src/Credentials.ts";
-import {
-  catchNotFound,
-  makeClient,
-  VultrClient,
-  VultrClientLive,
-} from "../src/internal/Client.ts";
+import { catchNotFound, makeClient, VultrClient, VultrClientLive } from "../src/internal/Client.ts";
+import { compact, pickChanged, resourceId } from "../src/internal/defineResource.ts";
 import {
   VultrApiError,
   VultrInvalidToken,
@@ -17,7 +13,6 @@ import {
   VultrRateLimited,
   VultrUnauthorizedIp,
 } from "../src/internal/Error.ts";
-import { compact, pickChanged, resourceId } from "../src/internal/defineResource.ts";
 import { listAcrossParents } from "../src/internal/listAcross.ts";
 
 describe("helpers", () => {
@@ -58,15 +53,9 @@ describe("VultrClient", () => {
       },
     };
 
-    const client = makeClient(
-      http as never,
-      Redacted.make("test-key"),
-      "https://api.vultr.com/v2",
-    );
+    const client = makeClient(http as never, Redacted.make("test-key"), "https://api.vultr.com/v2");
 
-    const result = await Effect.runPromise(
-      client.get<{ ssh_keys: unknown[] }>("/ssh-keys"),
-    );
+    const result = await Effect.runPromise(client.get<{ ssh_keys: unknown[] }>("/ssh-keys"));
     expect(result.ssh_keys).toEqual([]);
     expect(calls[0]?.auth).toBe("Bearer test-key");
     expect(calls[0]?.url).toContain("/ssh-keys");
@@ -81,21 +70,13 @@ describe("VultrClient", () => {
           json: Effect.succeed({ error: "Not found" }),
         }),
     };
-    const client = makeClient(
-      http as never,
-      Redacted.make("test-key"),
-      "https://api.vultr.com/v2",
-    );
+    const client = makeClient(http as never, Redacted.make("test-key"), "https://api.vultr.com/v2");
 
-    const error = await Effect.runPromise(
-      client.get("/missing").pipe(Effect.flip),
-    );
+    const error = await Effect.runPromise(client.get("/missing").pipe(Effect.flip));
     expect(error).toBeInstanceOf(VultrNotFound);
     expect((error as VultrNotFound).status).toBe(404);
 
-    const missing = await Effect.runPromise(
-      catchNotFound(client.get("/missing")),
-    );
+    const missing = await Effect.runPromise(catchNotFound(client.get("/missing")));
     expect(missing).toBeUndefined();
   });
 
@@ -108,16 +89,10 @@ describe("VultrClient", () => {
           json: Effect.succeed({ error: "Slow down" }),
         }),
     };
-    const client = makeClient(
-      http as never,
-      Redacted.make("test-key"),
-      "https://api.vultr.com/v2",
-    );
+    const client = makeClient(http as never, Redacted.make("test-key"), "https://api.vultr.com/v2");
 
     // Retries exhaust, then surface the typed tag.
-    const error = await Effect.runPromise(
-      client.get("/throttled").pipe(Effect.flip),
-    );
+    const error = await Effect.runPromise(client.get("/throttled").pipe(Effect.flip));
     expect(error).toBeInstanceOf(VultrRateLimited);
   });
 
@@ -140,9 +115,7 @@ describe("VultrClient", () => {
       Redacted.make("test-key"),
       "https://api.vultr.com/v2",
     );
-    const ipError = await Effect.runPromise(
-      ipClient.get("/account").pipe(Effect.flip),
-    );
+    const ipError = await Effect.runPromise(ipClient.get("/account").pipe(Effect.flip));
     expect(ipError).toBeInstanceOf(VultrUnauthorizedIp);
     expect((ipError as VultrUnauthorizedIp).ip).toBe("1.2.3.4");
 
@@ -150,9 +123,7 @@ describe("VultrClient", () => {
       execute: () =>
         Effect.succeed({
           status: 401,
-          text: Effect.succeed(
-            JSON.stringify({ error: "Invalid API token.", status: 401 }),
-          ),
+          text: Effect.succeed(JSON.stringify({ error: "Invalid API token.", status: 401 })),
           json: Effect.succeed({}),
         }),
     };
@@ -161,9 +132,7 @@ describe("VultrClient", () => {
       Redacted.make("bad"),
       "https://api.vultr.com/v2",
     );
-    const tokenError = await Effect.runPromise(
-      tokenClient.get("/account").pipe(Effect.flip),
-    );
+    const tokenError = await Effect.runPromise(tokenClient.get("/account").pipe(Effect.flip));
     expect(tokenError).toBeInstanceOf(VultrInvalidToken);
   });
 
@@ -176,15 +145,9 @@ describe("VultrClient", () => {
           json: Effect.succeed({ error: "Bad request" }),
         }),
     };
-    const client = makeClient(
-      http as never,
-      Redacted.make("test-key"),
-      "https://api.vultr.com/v2",
-    );
+    const client = makeClient(http as never, Redacted.make("test-key"), "https://api.vultr.com/v2");
 
-    const error = await Effect.runPromise(
-      client.get("/bad").pipe(Effect.flip),
-    );
+    const error = await Effect.runPromise(client.get("/bad").pipe(Effect.flip));
     expect(error).toBeInstanceOf(VultrApiError);
     expect((error as VultrApiError).status).toBe(400);
   });
@@ -200,9 +163,7 @@ describe("VultrClient", () => {
       return client.baseUrl;
     }).pipe(Effect.provide(layer));
 
-    await expect(Effect.runPromise(program)).resolves.toBe(
-      "https://api.vultr.com/v2",
-    );
+    await expect(Effect.runPromise(program)).resolves.toBe("https://api.vultr.com/v2");
   });
 
   it("lists children across parents for nuke", async () => {
@@ -237,9 +198,7 @@ describe("VultrClient", () => {
         if (request.url.includes("/firewalls/g2/rules")) {
           return Effect.succeed({
             status: 200,
-            text: Effect.succeed(
-              JSON.stringify({ firewall_rules: [], meta: {} }),
-            ),
+            text: Effect.succeed(JSON.stringify({ firewall_rules: [], meta: {} })),
             json: Effect.succeed({}),
           });
         }
@@ -251,11 +210,7 @@ describe("VultrClient", () => {
       },
     };
 
-    const client = makeClient(
-      http as never,
-      Redacted.make("test-key"),
-      "https://api.vultr.com/v2",
-    );
+    const client = makeClient(http as never, Redacted.make("test-key"), "https://api.vultr.com/v2");
 
     const items = await Effect.runPromise(
       listAcrossParents({

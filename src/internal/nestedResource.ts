@@ -3,11 +3,7 @@ import { isResolved } from "alchemy/Diff";
 import * as Provider from "alchemy/Provider";
 import * as Effect from "effect/Effect";
 import { catchNotFound, VultrClient } from "./Client.ts";
-import {
-  compact,
-  type JsonObject,
-  pickChanged,
-} from "./defineResource.ts";
+import type { JsonObject } from "./defineResource.ts";
 import { listAcrossParents } from "./listAcross.ts";
 
 export interface NestedCrudConfig<
@@ -39,15 +35,8 @@ export interface NestedCrudConfig<
   readonly parentIdFromItem?: string;
   readonly replaceOnChange?: ReadonlyArray<keyof Props & string>;
   readonly toCreateBody: (props: Props) => JsonObject;
-  readonly toUpdateBody?: (
-    props: Props,
-    live: JsonObject,
-  ) => JsonObject | undefined;
-  readonly toAttributes: (
-    live: JsonObject,
-    parentId: string,
-    props: Props,
-  ) => Attributes;
+  readonly toUpdateBody?: (props: Props, live: JsonObject) => JsonObject | undefined;
+  readonly toAttributes: (live: JsonObject, parentId: string, props: Props) => Attributes;
   readonly updateMethod?: "PATCH" | "PUT" | "POST";
   readonly immutable?: boolean;
   readonly nuke?: {
@@ -89,23 +78,15 @@ export const defineNestedCrudResource = <
               parentIdField: config.parentList.idField,
               childPath: config.listPath,
               childKey: config.listKey,
-              map: (item, parentId) =>
-                config.toAttributes(item, parentId, {} as Props),
+              map: (item, parentId) => config.toAttributes(item, parentId, {} as Props),
             });
           }
           // Account-scoped nested list (path independent of parent).
           const client = yield* yield* VultrClient;
-          const items = yield* client.listAll<JsonObject>(
-            config.listPath(""),
-            config.listKey,
-          );
+          const items = yield* client.listAll<JsonObject>(config.listPath(""), config.listKey);
           const parentField = config.parentIdFromItem ?? "id";
           return items.map((item) =>
-            config.toAttributes(
-              item,
-              String(item[parentField] ?? ""),
-              {} as Props,
-            ),
+            config.toAttributes(item, String(item[parentField] ?? ""), {} as Props),
           );
         }),
         diff: Effect.fn(function* ({ news, olds }: any) {
@@ -163,9 +144,7 @@ export const defineNestedCrudResource = <
               .pipe(
                 Effect.catchTag("VultrConflict", (error) => {
                   if (!existingId) return Effect.fail(error);
-                  return client.get<JsonObject>(
-                    config.getPath(parentId, existingId),
-                  );
+                  return client.get<JsonObject>(config.getPath(parentId, existingId));
                 }),
               );
             live = (created[config.wrapKey] ?? created) as JsonObject;
@@ -182,9 +161,7 @@ export const defineNestedCrudResource = <
                     ? yield* client.post<JsonObject>(path, { body })
                     : yield* client.patch<JsonObject>(path, { body });
               if (updated) {
-                live = (updated[config.wrapKey] ??
-                  updated ??
-                  live) as JsonObject;
+                live = (updated[config.wrapKey] ?? updated ?? live) as JsonObject;
               } else {
                 const refreshed = yield* client.get<JsonObject>(path);
                 live = (refreshed[config.wrapKey] ?? refreshed) as JsonObject;
@@ -211,5 +188,5 @@ export const defineNestedCrudResource = <
   };
 };
 
-export { compact, pickChanged, resourceId } from "./defineResource.ts";
 export type { JsonObject } from "./defineResource.ts";
+export { compact, pickChanged, resourceId } from "./defineResource.ts";

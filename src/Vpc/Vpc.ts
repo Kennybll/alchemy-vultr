@@ -1,9 +1,4 @@
-import {
-  compact,
-  defineCrudResource,
-  pickChanged,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
 
 export interface VpcProps {
   region: string;
@@ -17,11 +12,7 @@ export type VpcAttributes = {
   dateCreated: string;
 };
 
-const defined = defineCrudResource<
-  "Vultr.Vpc.Vpc",
-  VpcProps,
-  VpcAttributes
->({
+const defined = defineCrudResource<"Vultr.Vpc.Vpc", VpcProps, VpcAttributes>({
   type: "Vultr.Vpc.Vpc",
   aliases: ["Vultr.Vpc"],
   description: "A Vultr VPC network.",
@@ -36,20 +27,20 @@ const defined = defineCrudResource<
   replaceOnChange: ["region", "v4Subnet", "v4SubnetMask"],
   toCreateBody: (props) =>
     compact({
-    region: props.region,
-    description: props.description,
-    v4_subnet: props.v4Subnet,
-    v4_subnet_mask: props.v4SubnetMask,
+      region: props.region,
+      description: props.description,
+      v4_subnet: props.v4Subnet,
+      v4_subnet_mask: props.v4SubnetMask,
     }),
   toUpdateBody: (props, live) =>
     pickChanged(
       {
-      description: props.description,
+        description: props.description,
       },
       live,
       ["description"],
     ),
-  toAttributes: (live, props) => ({
+  toAttributes: (live, _props) => ({
     id: live.id as string,
     dateCreated: live.date_created as string,
   }),

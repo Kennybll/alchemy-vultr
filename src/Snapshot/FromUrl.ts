@@ -40,10 +40,7 @@ export const FromUrlProvider = () =>
       stables: ["id"],
       list: Effect.fn(function* () {
         const client = yield* yield* VultrClient;
-        const items = yield* client.listAll<JsonObject>(
-          "/snapshots",
-          "snapshots",
-        );
+        const items = yield* client.listAll<JsonObject>("/snapshots", "snapshots");
         return items.map((live) => ({
           id: String(live.id ?? ""),
           description: String(live.description ?? ""),
@@ -60,9 +57,7 @@ export const FromUrlProvider = () =>
       read: Effect.fn(function* ({ output }) {
         if (!output?.id) return undefined;
         const client = yield* yield* VultrClient;
-        const response = yield* catchNotFound(
-          client.get<JsonObject>(`/snapshots/${output.id}`),
-        );
+        const response = yield* catchNotFound(client.get<JsonObject>(`/snapshots/${output.id}`));
         if (!response) return undefined;
         const live = (response.snapshot ?? response) as JsonObject;
         return {
@@ -76,9 +71,7 @@ export const FromUrlProvider = () =>
       reconcile: Effect.fn(function* ({ news, output }) {
         const client = yield* yield* VultrClient;
         if (output?.id) {
-          const existing = yield* catchNotFound(
-            client.get<JsonObject>(`/snapshots/${output.id}`),
-          );
+          const existing = yield* catchNotFound(client.get<JsonObject>(`/snapshots/${output.id}`));
           if (existing) {
             const live = (existing.snapshot ?? existing) as JsonObject;
             return {
@@ -90,15 +83,12 @@ export const FromUrlProvider = () =>
             };
           }
         }
-        const created = yield* client.post<JsonObject>(
-          "/snapshots/create-from-url",
-          {
-            body: compact({
-              url: news.url,
-              description: news.description,
-            }),
-          },
-        );
+        const created = yield* client.post<JsonObject>("/snapshots/create-from-url", {
+          body: compact({
+            url: news.url,
+            description: news.description,
+          }),
+        });
         const live = (created.snapshot ?? created) as JsonObject;
         return {
           id: String(live.id ?? ""),

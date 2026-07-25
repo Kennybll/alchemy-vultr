@@ -1,9 +1,4 @@
-import {
-  compact,
-  defineCrudResource,
-  pickChanged,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
 
 export interface ContainerRegistryProps {
   name: string;
@@ -34,26 +29,24 @@ const defined = defineCrudResource<
   listKey: "registries",
   wrapKey: "registry",
   getPath: (id) => `/registries/${id}`,
-  
-  
-  
+
   replaceOnChange: ["name", "region", "plan"],
   toCreateBody: (props) =>
     compact({
-    name: props.name,
-    public: props.public,
-    region: props.region,
-    plan: props.plan,
+      name: props.name,
+      public: props.public,
+      region: props.region,
+      plan: props.plan,
     }),
   toUpdateBody: (props, live) =>
     pickChanged(
       {
-      public: props.public,
+        public: props.public,
       },
       live,
       ["public"],
     ),
-  toAttributes: (live, props) => ({
+  toAttributes: (live, _props) => ({
     id: live.id as string,
     urn: live.urn as string,
     storage: live.storage as unknown,

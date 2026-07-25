@@ -1,10 +1,5 @@
-import * as Redacted from "effect/Redacted";
-import {
-  compact,
-  defineCrudResource,
-  pickChanged,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import type * as Redacted from "effect/Redacted";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
 import { redact } from "../internal/redacted.ts";
 
 export interface BareMetalProps {
@@ -34,11 +29,7 @@ export type BareMetalAttributes = {
   v6MainIp: string;
 };
 
-const defined = defineCrudResource<
-  "Vultr.BareMetal.Server",
-  BareMetalProps,
-  BareMetalAttributes
->({
+const defined = defineCrudResource<"Vultr.BareMetal.Server", BareMetalProps, BareMetalAttributes>({
   type: "Vultr.BareMetal.Server",
   aliases: ["Vultr.BareMetal"],
   description: "A Vultr Bare Metal server.",
@@ -48,40 +39,47 @@ const defined = defineCrudResource<
   listKey: "bare_metals",
   wrapKey: "bare_metal",
   getPath: (id) => `/bare-metals/${id}`,
-  
-  
-  
-  replaceOnChange: ["region", "plan", "osId", "appId", "imageId", "snapshotId", "hostname", "enableIpv6"],
+
+  replaceOnChange: [
+    "region",
+    "plan",
+    "osId",
+    "appId",
+    "imageId",
+    "snapshotId",
+    "hostname",
+    "enableIpv6",
+  ],
   toCreateBody: (props) =>
     compact({
-    region: props.region,
-    plan: props.plan,
-    os_id: props.osId,
-    app_id: props.appId,
-    image_id: props.imageId,
-    snapshot_id: props.snapshotId,
-    label: props.label,
-    hostname: props.hostname,
-    tags: props.tags,
-    enable_ipv6: props.enableIpv6,
-    ssh_key_ids: props.sshKeyIds,
-    script_id: props.scriptId,
-    user_data: props.userData,
-    reserved_ipv4: props.reservedIpv4,
-    vpc_ids: props.vpcIds,
+      region: props.region,
+      plan: props.plan,
+      os_id: props.osId,
+      app_id: props.appId,
+      image_id: props.imageId,
+      snapshot_id: props.snapshotId,
+      label: props.label,
+      hostname: props.hostname,
+      tags: props.tags,
+      enable_ipv6: props.enableIpv6,
+      ssh_key_ids: props.sshKeyIds,
+      script_id: props.scriptId,
+      user_data: props.userData,
+      reserved_ipv4: props.reservedIpv4,
+      vpc_ids: props.vpcIds,
     }),
   toUpdateBody: (props, live) =>
     pickChanged(
       {
-      label: props.label,
-      tags: props.tags,
-      reserved_ipv4: props.reservedIpv4,
-      vpc_ids: props.vpcIds,
+        label: props.label,
+        tags: props.tags,
+        reserved_ipv4: props.reservedIpv4,
+        vpc_ids: props.vpcIds,
       },
       live,
       ["label", "tags", "reserved_ipv4", "vpc_ids"],
     ),
-  toAttributes: (live, props) => ({
+  toAttributes: (live, _props) => ({
     id: live.id as string,
     mainIp: live.main_ip as string,
     status: live.status as string,

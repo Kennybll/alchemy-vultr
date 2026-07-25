@@ -39,8 +39,7 @@ const defined = defineNestedCrudResource<
   parentList: { path: "/databases", key: "databases" },
   resolveParentId: (props) => resourceId(props.database),
   listPath: (databaseId) => `/databases/${databaseId}/connection-pools`,
-  getPath: (databaseId, id) =>
-    `/databases/${databaseId}/connection-pools/${id}`,
+  getPath: (databaseId, id) => `/databases/${databaseId}/connection-pools/${id}`,
   replaceOnChange: ["name"],
   toCreateBody: (props) =>
     compact({

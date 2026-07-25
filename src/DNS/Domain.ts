@@ -1,9 +1,4 @@
-import {
-  compact,
-  defineCrudResource,
-  pickChanged,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
 
 export interface DnsDomainProps {
   domain: string;
@@ -17,11 +12,7 @@ export type DnsDomainAttributes = {
   dateCreated: string;
 };
 
-const defined = defineCrudResource<
-  "Vultr.DNS.Domain",
-  DnsDomainProps,
-  DnsDomainAttributes
->({
+const defined = defineCrudResource<"Vultr.DNS.Domain", DnsDomainProps, DnsDomainAttributes>({
   type: "Vultr.DNS.Domain",
   aliases: ["Vultr.DnsDomain"],
   description: "A DNS domain hosted on Vultr.",
@@ -31,20 +22,18 @@ const defined = defineCrudResource<
   listKey: "domains",
   wrapKey: "domain",
   getPath: (id) => `/domains/${id}`,
-  
-  
-  
+
   replaceOnChange: ["domain"],
   toCreateBody: (props) =>
     compact({
-    domain: props.domain,
-    ip: props.ip,
-    dns_sec: props.dnsSec,
+      domain: props.domain,
+      ip: props.ip,
+      dns_sec: props.dnsSec,
     }),
   toUpdateBody: (props, live) =>
     pickChanged(
       {
-      dns_sec: props.dnsSec,
+        dns_sec: props.dnsSec,
       },
       live,
       ["dns_sec"],

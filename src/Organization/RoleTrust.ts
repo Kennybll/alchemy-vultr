@@ -1,8 +1,4 @@
-import {
-  compact,
-  defineCrudResource,
-  pickChanged,
-} from "../internal/defineResource.ts";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
 
 export interface OrganizationRoleTrustProps {
   roleId: string;
@@ -38,11 +34,7 @@ const defined = defineCrudResource<
       external_id: props.externalId,
     }),
   toUpdateBody: (props, live) =>
-    pickChanged(
-      { external_id: props.externalId },
-      live,
-      ["external_id"],
-    ),
+    pickChanged({ external_id: props.externalId }, live, ["external_id"]),
   toAttributes: (live, props) => ({
     id: String(live.id ?? ""),
     roleId: String(live.role_id ?? props.roleId),

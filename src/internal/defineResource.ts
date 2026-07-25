@@ -25,10 +25,7 @@ export interface CrudResourceConfig<
   readonly deletePath?: (id: string, props?: Props) => string;
   readonly replaceOnChange?: ReadonlyArray<keyof Props & string>;
   readonly toCreateBody: (props: Props) => JsonObject;
-  readonly toUpdateBody?: (
-    props: Props,
-    live: JsonObject,
-  ) => JsonObject | undefined;
+  readonly toUpdateBody?: (props: Props, live: JsonObject) => JsonObject | undefined;
   readonly toAttributes: (live: JsonObject, props: Props) => Attributes;
   readonly updateMethod?: "PATCH" | "PUT" | "POST";
   readonly immutable?: boolean;
@@ -65,13 +62,8 @@ export const defineCrudResource = <
         stables: [...config.stables] as string[],
         list: Effect.fn(function* () {
           const client = yield* yield* VultrClient;
-          const items = yield* client.listAll<JsonObject>(
-            config.listPath,
-            config.listKey,
-          );
-          return items.map((item) =>
-            config.toAttributes(item, {} as Props),
-          );
+          const items = yield* client.listAll<JsonObject>(config.listPath, config.listKey);
+          return items.map((item) => config.toAttributes(item, {} as Props));
         }),
         diff: Effect.fn(function* ({ news, olds }: any) {
           if (!isResolved(news)) return undefined;
@@ -89,9 +81,7 @@ export const defineCrudResource = <
           const id = output?.[config.idAttribute];
           if (typeof id !== "string" || id.length === 0) return undefined;
           const client = yield* yield* VultrClient;
-          const response = yield* catchNotFound(
-            client.get<JsonObject>(config.getPath(id)),
-          );
+          const response = yield* catchNotFound(client.get<JsonObject>(config.getPath(id)));
           if (!response) return undefined;
           const live = (response[config.wrapKey] ?? response) as JsonObject;
           return config.toAttributes(live, {} as Props);
@@ -123,9 +113,7 @@ export const defineCrudResource = <
               .pipe(
                 Effect.catchTag("VultrConflict", (error) => {
                   if (!existingId) return Effect.fail(error);
-                  return client.get<JsonObject>(
-                    config.getPath(existingId, props),
-                  );
+                  return client.get<JsonObject>(config.getPath(existingId, props));
                 }),
               );
             live = (created[config.wrapKey] ?? created) as JsonObject;
@@ -142,9 +130,7 @@ export const defineCrudResource = <
                     ? yield* client.post<JsonObject>(path, { body })
                     : yield* client.patch<JsonObject>(path, { body });
               if (updated) {
-                live = (updated[config.wrapKey] ??
-                  updated ??
-                  live) as JsonObject;
+                live = (updated[config.wrapKey] ?? updated ?? live) as JsonObject;
               } else {
                 const refreshed = yield* client.get<JsonObject>(path);
                 live = (refreshed[config.wrapKey] ?? refreshed) as JsonObject;
@@ -158,10 +144,7 @@ export const defineCrudResource = <
           const id = output[config.idAttribute];
           if (typeof id !== "string" || id.length === 0) return;
           const client = yield* yield* VultrClient;
-          const path = (config.deletePath ?? config.getPath)(
-            id,
-            olds as Props | undefined,
-          );
+          const path = (config.deletePath ?? config.getPath)(id, olds as Props | undefined);
           yield* catchNotFound(client.del(path));
         }),
       } as any),

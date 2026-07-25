@@ -2,16 +2,9 @@ import { Resource } from "alchemy";
 import { isResolved } from "alchemy/Diff";
 import * as Provider from "alchemy/Provider";
 import * as Effect from "effect/Effect";
-import * as Redacted from "effect/Redacted";
-import {
-  catchNotFound,
-  VultrClient,
-} from "../internal/Client.ts";
-import {
-  compact,
-  pickChanged,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import type * as Redacted from "effect/Redacted";
+import { catchNotFound, VultrClient } from "../internal/Client.ts";
+import { compact, type JsonObject, pickChanged } from "../internal/defineResource.ts";
 import { redact } from "../internal/redacted.ts";
 import type { Providers } from "../Providers.ts";
 
@@ -142,10 +135,7 @@ export const InstanceProvider = () =>
       stables: ["id"],
       list: Effect.fn(function* () {
         const client = yield* yield* VultrClient;
-        const items = yield* client.listAll<JsonObject>(
-          "/instances",
-          "instances",
-        );
+        const items = yield* client.listAll<JsonObject>("/instances", "instances");
         return items.map(toAttributes);
       }),
       diff: Effect.fn(function* ({ news, olds }) {
@@ -166,9 +156,7 @@ export const InstanceProvider = () =>
       read: Effect.fn(function* ({ output }) {
         if (!output?.id) return undefined;
         const client = yield* yield* VultrClient;
-        const response = yield* catchNotFound(
-          client.get<JsonObject>(`/instances/${output.id}`),
-        );
+        const response = yield* catchNotFound(client.get<JsonObject>(`/instances/${output.id}`));
         if (!response) return undefined;
         return toAttributes((response.instance ?? response) as JsonObject);
       }),
@@ -177,9 +165,7 @@ export const InstanceProvider = () =>
 
         let live: JsonObject | undefined;
         if (output?.id) {
-          const response = yield* catchNotFound(
-            client.get<JsonObject>(`/instances/${output.id}`),
-          );
+          const response = yield* catchNotFound(client.get<JsonObject>(`/instances/${output.id}`));
           if (response) {
             live = (response.instance ?? response) as JsonObject;
           }
@@ -240,10 +226,7 @@ export const InstanceProvider = () =>
             ],
           );
           if (Object.keys(body).length > 0) {
-            const updated = yield* client.patch<JsonObject>(
-              `/instances/${live.id}`,
-              { body },
-            );
+            const updated = yield* client.patch<JsonObject>(`/instances/${live.id}`, { body });
             live = (updated?.instance ?? updated ?? live) as JsonObject;
           }
 
@@ -273,9 +256,7 @@ export const InstanceProvider = () =>
         }
 
         // Refresh for latest status / IPs.
-        const refreshed = yield* client.get<JsonObject>(
-          `/instances/${String(live.id)}`,
-        );
+        const refreshed = yield* client.get<JsonObject>(`/instances/${String(live.id)}`);
         return toAttributes((refreshed.instance ?? refreshed) as JsonObject);
       }),
       delete: Effect.fn(function* ({ output }) {

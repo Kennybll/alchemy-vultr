@@ -9,12 +9,8 @@ import * as Alchemy from "alchemy";
 import * as Test from "alchemy/Test/Bun";
 import * as Effect from "effect/Effect";
 import * as Vultr from "../../src/index.ts";
-import {
-  clientGet,
-  hasApiKey,
-  probeAuthenticatedAccess,
-} from "./helpers.ts";
 import type { JsonObject } from "../../src/internal/defineResource.ts";
+import { clientGet, hasApiKey, probeAuthenticatedAccess } from "./helpers.ts";
 
 const SSH_PUB =
   "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIStageIsolationTestKey00000001 alchemy-vultr-stage@test";
@@ -151,9 +147,7 @@ test.skipIf(!hasApiKey)(
     expect(String(((bKey.ssh_key ?? bKey) as JsonObject).id)).toBe(b.keyId);
 
     const bScript = yield* clientGet(`/startup-scripts/${b.scriptId}`);
-    expect(
-      String(((bScript.startup_script ?? bScript) as JsonObject).id),
-    ).toBe(b.scriptId);
+    expect(String(((bScript.startup_script ?? bScript) as JsonObject).id)).toBe(b.scriptId);
 
     const bVpc = yield* clientGet(`/vpcs/${b.vpcId}`);
     expect(String(((bVpc.vpc ?? bVpc) as JsonObject).id)).toBe(b.vpcId);

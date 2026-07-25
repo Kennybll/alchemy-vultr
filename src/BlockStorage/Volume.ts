@@ -1,9 +1,4 @@
-import {
-  compact,
-  defineCrudResource,
-  pickChanged,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
 
 export interface BlockStorageProps {
   region: string;
@@ -35,27 +30,25 @@ const defined = defineCrudResource<
   listKey: "blocks",
   wrapKey: "block",
   getPath: (id) => `/blocks/${id}`,
-  
-  
-  
+
   replaceOnChange: ["region", "blockType"],
   toCreateBody: (props) =>
     compact({
-    region: props.region,
-    size_gb: props.sizeGb,
-    label: props.label,
-    block_type: props.blockType,
+      region: props.region,
+      size_gb: props.sizeGb,
+      label: props.label,
+      block_type: props.blockType,
     }),
   toUpdateBody: (props, live) =>
     pickChanged(
       {
-      size_gb: props.sizeGb,
-      label: props.label,
+        size_gb: props.sizeGb,
+        label: props.label,
       },
       live,
       ["size_gb", "label"],
     ),
-  toAttributes: (live, props) => ({
+  toAttributes: (live, _props) => ({
     id: live.id as string,
     cost: live.cost as number,
     status: live.status as string,

@@ -1,8 +1,4 @@
-import {
-  AuthError,
-  AuthProviderLayer,
-  type ConfigureContext,
-} from "alchemy/Auth/AuthProvider";
+import { AuthError, AuthProviderLayer, type ConfigureContext } from "alchemy/Auth/AuthProvider";
 import { CredentialsStore, displayRedacted } from "alchemy/Auth/Credentials";
 import { getEnvRedacted, retryOnce } from "alchemy/Auth/Env";
 import { AlchemyProfile } from "alchemy/Auth/Profile";
@@ -49,10 +45,7 @@ const options: Array<{
  * Layer that registers the Vultr {@link AuthProvider} into the
  * Alchemy AuthProviders registry for `alchemy login`.
  */
-export const VultrAuth = AuthProviderLayer<
-  VultrAuthConfig,
-  VultrResolvedCredentials
->()(
+export const VultrAuth = AuthProviderLayer<VultrAuthConfig, VultrResolvedCredentials>()(
   VULTR_AUTH_PROVIDER_NAME,
   Effect.gen(function* () {
     const profiles = yield* AlchemyProfile;
@@ -129,8 +122,7 @@ export const VultrAuth = AuthProviderLayer<
               creds == null
                 ? Effect.fail(
                     new AuthError({
-                      message:
-                        "Vultr stored credentials not found. Run: alchemy login --configure",
+                      message: "Vultr stored credentials not found. Run: alchemy login --configure",
                     }),
                   )
                 : Effect.succeed({
@@ -150,11 +142,7 @@ export const VultrAuth = AuthProviderLayer<
         Match.when({ method: "stored" }, () =>
           store
             .delete(profileName, STORAGE_KEY)
-            .pipe(
-              Effect.andThen(
-                Clank.success("Vultr: stored credentials removed"),
-              ),
-            ),
+            .pipe(Effect.andThen(Clank.success("Vultr: stored credentials removed"))),
         ),
         Match.exhaustive,
       );
@@ -182,18 +170,12 @@ export const VultrAuth = AuthProviderLayer<
             store
               .read<VultrStoredCredentials>(profileName, STORAGE_KEY)
               .pipe(
-                Effect.flatMap((creds) =>
-                  creds == null ? loginStored(profileName) : Effect.void,
-                ),
+                Effect.flatMap((creds) => (creds == null ? loginStored(profileName) : Effect.void)),
               ),
           ),
           Match.exhaustive,
         )
-        .pipe(
-          Effect.mapError(
-            (e) => new AuthError({ message: "login failed", cause: e }),
-          ),
-        );
+        .pipe(Effect.mapError((e) => new AuthError({ message: "login failed", cause: e })));
 
     const prettyPrint = (profileName: string, config: VultrAuthConfig) =>
       resolveCredentials(profileName, config).pipe(
@@ -206,9 +188,7 @@ export const VultrAuth = AuthProviderLayer<
             Console.log(`  source: ${sourceStr}`),
           ]);
         }),
-        Effect.catch((e) =>
-          Console.error(`  Failed to retrieve credentials: ${e}`),
-        ),
+        Effect.catch((e) => Console.error(`  Failed to retrieve credentials: ${e}`)),
       );
 
     return {

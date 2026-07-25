@@ -1,9 +1,4 @@
-import {
-  compact,
-  defineCrudResource,
-  pickChanged,
-  type JsonObject,
-} from "../internal/defineResource.ts";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
 
 export interface CdnPullZoneProps {
   label: string;
@@ -24,11 +19,7 @@ export type CdnPullZoneAttributes = {
   cdnUrl: string;
 };
 
-const defined = defineCrudResource<
-  "Vultr.CDN.PullZone",
-  CdnPullZoneProps,
-  CdnPullZoneAttributes
->({
+const defined = defineCrudResource<"Vultr.CDN.PullZone", CdnPullZoneProps, CdnPullZoneAttributes>({
   type: "Vultr.CDN.PullZone",
   aliases: ["Vultr.CdnPullZone"],
   description: "A Vultr CDN pull zone.",
@@ -38,38 +29,45 @@ const defined = defineCrudResource<
   listKey: "pull_zones",
   wrapKey: "pull_zone",
   getPath: (id) => `/cdns/pull-zones/${id}`,
-  
-  
-  
+
   replaceOnChange: ["originDomain"],
   toCreateBody: (props) =>
     compact({
-    label: props.label,
-    origin_scheme: props.originScheme,
-    origin_domain: props.originDomain,
-    vanity_domain: props.vanityDomain,
-    ssl: props.ssl,
-    cors: props.cors,
-    gzip: props.gzip,
-    block_ai: props.blockAi,
-    block_bad_bots: props.blockBadBots,
-    }),
-  toUpdateBody: (props, live) =>
-    pickChanged(
-      {
       label: props.label,
       origin_scheme: props.originScheme,
+      origin_domain: props.originDomain,
       vanity_domain: props.vanityDomain,
       ssl: props.ssl,
       cors: props.cors,
       gzip: props.gzip,
       block_ai: props.blockAi,
       block_bad_bots: props.blockBadBots,
+    }),
+  toUpdateBody: (props, live) =>
+    pickChanged(
+      {
+        label: props.label,
+        origin_scheme: props.originScheme,
+        vanity_domain: props.vanityDomain,
+        ssl: props.ssl,
+        cors: props.cors,
+        gzip: props.gzip,
+        block_ai: props.blockAi,
+        block_bad_bots: props.blockBadBots,
       },
       live,
-      ["label", "origin_scheme", "vanity_domain", "ssl", "cors", "gzip", "block_ai", "block_bad_bots"],
+      [
+        "label",
+        "origin_scheme",
+        "vanity_domain",
+        "ssl",
+        "cors",
+        "gzip",
+        "block_ai",
+        "block_bad_bots",
+      ],
     ),
-  toAttributes: (live, props) => ({
+  toAttributes: (live, _props) => ({
     id: live.id as string,
     status: live.status as string,
     dateCreated: live.date_created as string,
