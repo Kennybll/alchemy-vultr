@@ -1,0 +1,67 @@
+import type * as Redacted from "effect/Redacted";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
+import { redact } from "../internal/redacted.ts";
+
+export interface ObjectStorageProps {
+  clusterId: number;
+  tierId?: number;
+  label?: string;
+}
+
+export type ObjectStorageAttributes = {
+  id: string;
+  dateCreated: string;
+  status: string;
+  region: string;
+  s3Hostname: string;
+  s3AccessKey: Redacted.Redacted<string>;
+  s3SecretKey: Redacted.Redacted<string>;
+};
+
+const defined = defineCrudResource<
+  "Vultr.ObjectStorage.Subscription",
+  ObjectStorageProps,
+  ObjectStorageAttributes
+>({
+  type: "Vultr.ObjectStorage.Subscription",
+  aliases: ["Vultr.ObjectStorage"],
+  description: "A Vultr Object Storage subscription.",
+  stables: ["id"],
+  idAttribute: "id",
+  listPath: "/object-storage",
+  listKey: "object_storages",
+  wrapKey: "object_storage",
+  getPath: (id) => `/object-storage/${id}`,
+
+  replaceOnChange: ["clusterId", "tierId"],
+  toCreateBody: (props) =>
+    compact({
+      cluster_id: props.clusterId,
+      tier_id: props.tierId,
+      label: props.label,
+    }),
+  toUpdateBody: (props, live) =>
+    pickChanged(
+      {
+        label: props.label,
+      },
+      live,
+      ["label"],
+    ),
+  toAttributes: (live, _props) => ({
+    id: live.id as string,
+    dateCreated: live.date_created as string,
+    status: live.status as string,
+    region: live.region as string,
+    s3Hostname: live.s3_hostname as string,
+    s3AccessKey: redact(live.s3_access_key),
+    s3SecretKey: redact(live.s3_secret_key),
+  }),
+});
+
+/**
+ * A Vultr Object Storage subscription.
+ * @resource
+ */
+export const Subscription = defined.Resource;
+export const SubscriptionProvider = defined.Provider;

@@ -1,0 +1,13 @@
+repos/
+scripts/
+test/
+.github/
+*.tgz
+.env*
+.alchemy/
+coverage/
+tsconfig.json
+tsconfig.build.json
+vitest.config.ts
+.gitignore
+.gitmodules

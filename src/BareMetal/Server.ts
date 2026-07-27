@@ -1,0 +1,97 @@
+import type * as Redacted from "effect/Redacted";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
+import { redact } from "../internal/redacted.ts";
+
+export interface BareMetalProps {
+  region: string;
+  plan: string;
+  osId?: number;
+  appId?: number;
+  imageId?: string;
+  snapshotId?: string;
+  label?: string;
+  hostname?: string;
+  tags?: ReadonlyArray<string>;
+  enableIpv6?: boolean;
+  sshKeyIds?: ReadonlyArray<string>;
+  scriptId?: string;
+  userData?: string;
+  reservedIpv4?: string;
+  vpcIds?: ReadonlyArray<string>;
+}
+
+export type BareMetalAttributes = {
+  id: string;
+  mainIp: string;
+  status: string;
+  defaultPassword: Redacted.Redacted<string>;
+  dateCreated: string;
+  v6MainIp: string;
+};
+
+const defined = defineCrudResource<"Vultr.BareMetal.Server", BareMetalProps, BareMetalAttributes>({
+  type: "Vultr.BareMetal.Server",
+  aliases: ["Vultr.BareMetal"],
+  description: "A Vultr Bare Metal server.",
+  stables: ["id"],
+  idAttribute: "id",
+  listPath: "/bare-metals",
+  listKey: "bare_metals",
+  wrapKey: "bare_metal",
+  getPath: (id) => `/bare-metals/${id}`,
+
+  replaceOnChange: [
+    "region",
+    "plan",
+    "osId",
+    "appId",
+    "imageId",
+    "snapshotId",
+    "hostname",
+    "enableIpv6",
+  ],
+  toCreateBody: (props) =>
+    compact({
+      region: props.region,
+      plan: props.plan,
+      os_id: props.osId,
+      app_id: props.appId,
+      image_id: props.imageId,
+      snapshot_id: props.snapshotId,
+      label: props.label,
+      hostname: props.hostname,
+      tags: props.tags,
+      enable_ipv6: props.enableIpv6,
+      ssh_key_ids: props.sshKeyIds,
+      script_id: props.scriptId,
+      user_data: props.userData,
+      reserved_ipv4: props.reservedIpv4,
+      vpc_ids: props.vpcIds,
+    }),
+  toUpdateBody: (props, live) =>
+    pickChanged(
+      {
+        label: props.label,
+        tags: props.tags,
+        reserved_ipv4: props.reservedIpv4,
+        vpc_ids: props.vpcIds,
+      },
+      live,
+      ["label", "tags", "reserved_ipv4", "vpc_ids"],
+    ),
+  toAttributes: (live, _props) => ({
+    id: live.id as string,
+    mainIp: live.main_ip as string,
+    status: live.status as string,
+    defaultPassword: redact(live.default_password),
+    dateCreated: live.date_created as string,
+    v6MainIp: live.v6_main_ip as string,
+  }),
+});
+
+/**
+ * A Vultr Bare Metal server.
+ * @resource
+ */
+export const Server = defined.Resource;
+export const ServerProvider = defined.Provider;

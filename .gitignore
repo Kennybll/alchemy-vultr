@@ -1,0 +1,13 @@
+node_modules/
+dist/
+*.tgz
+.env
+.env.*
+!.env.example
+.alchemy/
+coverage/
+*.log
+.DS_Store
+.turbo/
+.vitest/
+dist/

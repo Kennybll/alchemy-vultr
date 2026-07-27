@@ -1,0 +1,107 @@
+{
+  "name": "alchemy-vultr",
+  "version": "0.0.0",
+  "description": "Alchemy Effect provider for Vultr — every Vultr primitive as typed Infrastructure-as-Effects resources",
+  "license": "MIT",
+  "author": "Kennybll",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kennybll/alchemy-vultr.git"
+  },
+  "homepage": "https://github.com/Kennybll/alchemy-vultr#readme",
+  "bugs": {
+    "url": "https://github.com/Kennybll/alchemy-vultr/issues"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "bun": "./src/index.ts",
+      "import": "./dist/index.js"
+    },
+    "./AuthProvider": {
+      "types": "./dist/AuthProvider.d.ts",
+      "bun": "./src/AuthProvider.ts",
+      "import": "./dist/AuthProvider.js"
+    },
+    "./Credentials": {
+      "types": "./dist/Credentials.d.ts",
+      "bun": "./src/Credentials.ts",
+      "import": "./dist/Credentials.js"
+    },
+    "./Providers": {
+      "types": "./dist/Providers.d.ts",
+      "bun": "./src/Providers.ts",
+      "import": "./dist/Providers.js"
+    },
+    "./*": {
+      "types": "./dist/*/index.d.ts",
+      "bun": "./src/*/index.ts",
+      "import": "./dist/*/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:live": "CI=1 bun test test/live",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "changeset publish",
+    "prepublishOnly": "bun run typecheck && bun run lint && bun run test && bun run build"
+  },
+  "keywords": [
+    "alchemy",
+    "vultr",
+    "effect",
+    "infrastructure-as-code",
+    "iac",
+    "cloud",
+    "provider"
+  ],
+  "peerDependencies": {
+    "alchemy": ">=2.0.0-beta.64",
+    "effect": ">=4.0.0-beta.100"
+  },
+  "dependencies": {
+    "alchemy": "2.0.0-beta.64",
+    "effect": "4.0.0-beta.100"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.5",
+    "@changesets/changelog-github": "^0.7.0",
+    "@changesets/cli": "^2.31.1",
+    "@effect/platform-bun": "4.0.0-beta.100",
+    "@types/bun": "^1.3.14",
+    "typescript": "7.0.2",
+    "vitest": "^4.1.10"
+  },
+  "peerDependenciesMeta": {
+    "@effect/platform-bun": {
+      "optional": true
+    }
+  },
+  "overrides": {
+    "signal-exit": "^4.1.0"
+  },
+  "engines": {
+    "bun": ">=1.2.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "registry": "https://registry.npmjs.org/"
+  }
+}

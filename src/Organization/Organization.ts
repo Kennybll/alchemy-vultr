@@ -1,0 +1,51 @@
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
+
+export interface OrganizationProps {
+  name: string;
+}
+
+export type OrganizationAttributes = {
+  id: string;
+  dateCreated: string;
+};
+
+const defined = defineCrudResource<
+  "Vultr.Organization.Organization",
+  OrganizationProps,
+  OrganizationAttributes
+>({
+  type: "Vultr.Organization.Organization",
+  aliases: ["Vultr.Organization"],
+  description: "A Vultr Organization.",
+  stables: ["id"],
+  idAttribute: "id",
+  listPath: "/organizations",
+  listKey: "organizations",
+  wrapKey: "organization",
+  getPath: (id) => `/organizations/${id}`,
+
+  replaceOnChange: [],
+  toCreateBody: (props) =>
+    compact({
+      name: props.name,
+    }),
+  toUpdateBody: (props, live) =>
+    pickChanged(
+      {
+        name: props.name,
+      },
+      live,
+      ["name"],
+    ),
+  toAttributes: (live, _props) => ({
+    id: live.id as string,
+    dateCreated: live.date_created as string,
+  }),
+});
+
+/**
+ * A Vultr Organization.
+ * @resource
+ */
+export const Organization = defined.Resource;
+export const OrganizationProvider = defined.Provider;

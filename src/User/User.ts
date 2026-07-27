@@ -1,0 +1,62 @@
+import type * as Redacted from "effect/Redacted";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
+import { reveal } from "../internal/redacted.ts";
+
+export interface UserProps {
+  email: string;
+  name: string;
+  /**
+   * Initial password (create) or password reset (update).
+   * Prefer `Redacted.make(...)`.
+   */
+  password?: string | Redacted.Redacted<string>;
+  apiEnabled?: boolean;
+  acls?: ReadonlyArray<string>;
+}
+
+export type UserAttributes = {
+  id: string;
+};
+
+const defined = defineCrudResource<"Vultr.User.User", UserProps, UserAttributes>({
+  type: "Vultr.User.User",
+  aliases: ["Vultr.User"],
+  description: "A Vultr account user.",
+  stables: ["id"],
+  idAttribute: "id",
+  listPath: "/users",
+  listKey: "users",
+  wrapKey: "user",
+  getPath: (id) => `/users/${id}`,
+
+  replaceOnChange: ["email"],
+  toCreateBody: (props) =>
+    compact({
+      email: props.email,
+      name: props.name,
+      password: reveal(props.password),
+      api_enabled: props.apiEnabled,
+      acls: props.acls,
+    }),
+  toUpdateBody: (props, live) =>
+    pickChanged(
+      {
+        name: props.name,
+        password: reveal(props.password),
+        api_enabled: props.apiEnabled,
+        acls: props.acls,
+      },
+      live,
+      ["name", "password", "api_enabled", "acls"],
+    ),
+  toAttributes: (live, _props) => ({
+    id: live.id as string,
+  }),
+});
+
+/**
+ * A Vultr account user.
+ * @resource
+ */
+export const User = defined.Resource;
+export const UserProvider = defined.Provider;

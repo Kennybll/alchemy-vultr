@@ -1,0 +1,110 @@
+import type * as Duration from "effect/Duration";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
+import { toWireSeconds } from "../internal/duration.ts";
+
+export interface LoadBalancerProps {
+  region: string;
+  balancingAlgorithm?: "roundrobin" | "leastconn";
+  sslRedirect?: boolean;
+  http2?: boolean;
+  http3?: boolean;
+  proxyProtocol?: boolean;
+  /** Idle timeout. Accepts `"30 seconds"`, `Duration.seconds(30)`, or a number of seconds. */
+  timeout?: Duration.Input | number;
+  label?: string;
+  nodes?: number;
+  vpc?: string;
+  firewallRules?: ReadonlyArray<Record<string, unknown>>;
+  forwardingRules?: ReadonlyArray<Record<string, unknown>>;
+  healthCheck?: Record<string, unknown>;
+  instances?: ReadonlyArray<string>;
+}
+
+export type LoadBalancerAttributes = {
+  id: string;
+  status: string;
+  ipv4: string;
+  ipv6: string;
+  dateCreated: string;
+};
+
+const defined = defineCrudResource<
+  "Vultr.LoadBalancer.LoadBalancer",
+  LoadBalancerProps,
+  LoadBalancerAttributes
+>({
+  type: "Vultr.LoadBalancer.LoadBalancer",
+  aliases: ["Vultr.LoadBalancer"],
+  description: "A Vultr Load Balancer.",
+  stables: ["id"],
+  idAttribute: "id",
+  listPath: "/load-balancers",
+  listKey: "load_balancers",
+  wrapKey: "load_balancer",
+  getPath: (id) => `/load-balancers/${id}`,
+
+  replaceOnChange: ["region", "vpc"],
+  toCreateBody: (props) =>
+    compact({
+      region: props.region,
+      balancing_algorithm: props.balancingAlgorithm,
+      ssl_redirect: props.sslRedirect,
+      http2: props.http2,
+      http3: props.http3,
+      proxy_protocol: props.proxyProtocol,
+      timeout: typeof props.timeout === "number" ? props.timeout : toWireSeconds(props.timeout),
+      label: props.label,
+      nodes: props.nodes,
+      vpc: props.vpc,
+      firewall_rules: props.firewallRules,
+      forwarding_rules: props.forwardingRules,
+      health_check: props.healthCheck,
+      instances: props.instances,
+    }),
+  toUpdateBody: (props, live) =>
+    pickChanged(
+      {
+        balancing_algorithm: props.balancingAlgorithm,
+        ssl_redirect: props.sslRedirect,
+        http2: props.http2,
+        http3: props.http3,
+        proxy_protocol: props.proxyProtocol,
+        timeout: typeof props.timeout === "number" ? props.timeout : toWireSeconds(props.timeout),
+        label: props.label,
+        nodes: props.nodes,
+        firewall_rules: props.firewallRules,
+        forwarding_rules: props.forwardingRules,
+        health_check: props.healthCheck,
+        instances: props.instances,
+      },
+      live,
+      [
+        "balancing_algorithm",
+        "ssl_redirect",
+        "http2",
+        "http3",
+        "proxy_protocol",
+        "timeout",
+        "label",
+        "nodes",
+        "firewall_rules",
+        "forwarding_rules",
+        "health_check",
+        "instances",
+      ],
+    ),
+  toAttributes: (live, _props) => ({
+    id: live.id as string,
+    status: live.status as string,
+    ipv4: live.ipv4 as string,
+    ipv6: live.ipv6 as string,
+    dateCreated: live.date_created as string,
+  }),
+});
+
+/**
+ * A Vultr Load Balancer.
+ * @resource
+ */
+export const LoadBalancer = defined.Resource;
+export const LoadBalancerProvider = defined.Provider;

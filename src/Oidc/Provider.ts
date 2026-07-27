@@ -1,0 +1,62 @@
+import type * as Redacted from "effect/Redacted";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
+import { reveal } from "../internal/redacted.ts";
+
+export interface OidcProviderProps {
+  name: string;
+  issuerUrl: string;
+  clientId: string;
+  /** Prefer `Redacted.make(...)`. */
+  clientSecret?: string | Redacted.Redacted<string>;
+}
+
+export type OidcProviderAttributes = {
+  id: string;
+  dateCreated: string;
+};
+
+const defined = defineCrudResource<
+  "Vultr.Oidc.Provider",
+  OidcProviderProps,
+  OidcProviderAttributes
+>({
+  type: "Vultr.Oidc.Provider",
+  aliases: ["Vultr.OidcProvider"],
+  description: "A Vultr OIDC provider configuration.",
+  stables: ["id"],
+  idAttribute: "id",
+  listPath: "/oidc/providers",
+  listKey: "providers",
+  wrapKey: "provider",
+  getPath: (id) => `/oidc/providers/${id}`,
+
+  replaceOnChange: ["issuerUrl"],
+  toCreateBody: (props) =>
+    compact({
+      name: props.name,
+      issuer_url: props.issuerUrl,
+      client_id: props.clientId,
+      client_secret: reveal(props.clientSecret),
+    }),
+  toUpdateBody: (props, live) =>
+    pickChanged(
+      {
+        name: props.name,
+        client_id: props.clientId,
+        client_secret: reveal(props.clientSecret),
+      },
+      live,
+      ["name", "client_id", "client_secret"],
+    ),
+  toAttributes: (live, _props) => ({
+    id: live.id as string,
+    dateCreated: live.date_created as string,
+  }),
+});
+
+/**
+ * A Vultr OIDC provider configuration.
+ * @resource
+ */
+export const Provider = defined.Resource;
+export const ProviderProvider = defined.Provider;

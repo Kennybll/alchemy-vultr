@@ -1,0 +1,79 @@
+# Changesets + npm Trusted Publishing (OIDC) + GitHub Releases.
+# https://docs.npmjs.com/trusted-publishers/
+# https://github.com/changesets/action
+#
+# Flow:
+#   1. Contributors add `.changeset/*.md` on feature PRs (`bun run changeset`)
+#   2. Push/merge to main → this workflow opens/updates a "Version Packages" PR
+#      (bumps version, writes CHANGELOG.md from those changesets)
+#   3. Merge the Version Packages PR → this workflow runs `changeset publish`,
+#      creates a GitHub Release (changelog as body), and publishes to npm via OIDC
+#
+# One-time npmjs.com setup (package Settings → Trusted Publisher):
+#   - Provider: GitHub Actions
+#   - Organization/user: Kennybll
+#   - Repository: alchemy-vultr
+#   - Workflow filename: publish.yml   ← filename only, must match exactly
+#   - Allowed actions: npm publish
+
+name: Publish
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # tags + GitHub Releases + version commits
+      pull-requests: write # Version Packages PR
+      id-token: write # npm OIDC trusted publishing
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history for @changesets/changelog-github (PR/commit links).
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node (OIDC publish)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          # Omit registry-url — empty NODE_AUTH_TOKEN placeholders block OIDC.
+          # https://github.com/npm/documentation/issues/1960
+
+      - name: Ensure npm CLI supports trusted publishing
+        run: npm install -g npm@latest
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Create Release Pull Request or Publish
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          version: bun run version-packages
+          publish: bun run release
+          title: "chore: version packages"
+          commit: "chore: version packages"
+          createGithubReleases: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Force OIDC — do not use a long-lived NPM_TOKEN.
+          NODE_AUTH_TOKEN: ""

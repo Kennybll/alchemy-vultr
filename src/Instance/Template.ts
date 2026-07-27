@@ -1,0 +1,91 @@
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
+
+export interface InstanceTemplateProps {
+  label: string;
+  description?: string;
+  region?: string;
+  plan?: string;
+  osId?: number;
+  appId?: number;
+  imageId?: string;
+  snapshotId?: string;
+  userData?: string;
+  sshKeyIds?: ReadonlyArray<string>;
+  scriptId?: string;
+  firewallGroupId?: string;
+  tags?: ReadonlyArray<string>;
+}
+
+export type InstanceTemplateAttributes = {
+  id: string;
+  dateCreated: string;
+};
+
+const defined = defineCrudResource<
+  "Vultr.Instance.Template",
+  InstanceTemplateProps,
+  InstanceTemplateAttributes
+>({
+  type: "Vultr.Instance.Template",
+  aliases: ["Vultr.InstanceTemplate"],
+  description: "A reusable Vultr instance template.",
+  stables: ["id"],
+  idAttribute: "id",
+  listPath: "/instances/templates",
+  listKey: "templates",
+  wrapKey: "template",
+  getPath: (id) => `/instances/templates/${id}`,
+
+  replaceOnChange: ["region", "osId", "appId", "imageId", "snapshotId"],
+  toCreateBody: (props) =>
+    compact({
+      label: props.label,
+      description: props.description,
+      region: props.region,
+      plan: props.plan,
+      os_id: props.osId,
+      app_id: props.appId,
+      image_id: props.imageId,
+      snapshot_id: props.snapshotId,
+      user_data: props.userData,
+      ssh_key_ids: props.sshKeyIds,
+      script_id: props.scriptId,
+      firewall_group_id: props.firewallGroupId,
+      tags: props.tags,
+    }),
+  toUpdateBody: (props, live) =>
+    pickChanged(
+      {
+        label: props.label,
+        description: props.description,
+        plan: props.plan,
+        user_data: props.userData,
+        ssh_key_ids: props.sshKeyIds,
+        script_id: props.scriptId,
+        firewall_group_id: props.firewallGroupId,
+        tags: props.tags,
+      },
+      live,
+      [
+        "label",
+        "description",
+        "plan",
+        "user_data",
+        "ssh_key_ids",
+        "script_id",
+        "firewall_group_id",
+        "tags",
+      ],
+    ),
+  toAttributes: (live, _props) => ({
+    id: live.id as string,
+    dateCreated: live.date_created as string,
+  }),
+});
+
+/**
+ * A reusable Vultr instance template.
+ * @resource
+ */
+export const Template = defined.Resource;
+export const TemplateProvider = defined.Provider;

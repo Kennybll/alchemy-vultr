@@ -1,0 +1,51 @@
+import type * as Redacted from "effect/Redacted";
+import { compact, defineCrudResource, pickChanged } from "../internal/defineResource.ts";
+import { redact } from "../internal/redacted.ts";
+
+export interface ApiKeyProps {
+  name: string;
+}
+
+export type ApiKeyAttributes = {
+  id: string;
+  dateCreated: string;
+  apiKey: Redacted.Redacted<string>;
+};
+
+const defined = defineCrudResource<"Vultr.ApiKey.ApiKey", ApiKeyProps, ApiKeyAttributes>({
+  type: "Vultr.ApiKey.ApiKey",
+  aliases: ["Vultr.ApiKey"],
+  description: "A Vultr API key.",
+  stables: ["id"],
+  idAttribute: "id",
+  listPath: "/apikeys",
+  listKey: "apikeys",
+  wrapKey: "apikey",
+  getPath: (id) => `/apikeys/${id}`,
+
+  replaceOnChange: [],
+  toCreateBody: (props) =>
+    compact({
+      name: props.name,
+    }),
+  toUpdateBody: (props, live) =>
+    pickChanged(
+      {
+        name: props.name,
+      },
+      live,
+      ["name"],
+    ),
+  toAttributes: (live, _props) => ({
+    id: live.id as string,
+    dateCreated: live.date_created as string,
+    apiKey: redact(live.api_key),
+  }),
+});
+
+/**
+ * A Vultr API key.
+ * @resource
+ */
+export const ApiKey = defined.Resource;
+export const ApiKeyProvider = defined.Provider;
