@@ -187,7 +187,15 @@ Merging to `main` with pending changesets opens a **Version Packages** PR that b
 
 ### One-time npmjs.com setup
 
-1. Ensure the package exists on npm (first version can be a manual `npm publish` if Trusted Publisher UI requires it).
+1. Ensure the package exists on npm. If Trusted Publisher settings aren’t available yet, bootstrap once **from your laptop** (provenance only works in CI, so turn it off for this publish):
+
+   ```bash
+   bun run build
+   npm publish --access public --provenance false
+   ```
+
+   That may publish `0.0.0` just to create the package; the real `0.1.0` comes from the Changesets Version Packages PR on `main`.
+
 2. Package **Settings → Trusted Publisher → GitHub Actions**:
    - Organization/user: `Kennybll`
    - Repository: `alchemy-vultr`
