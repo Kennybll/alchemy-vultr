@@ -1,0 +1,17 @@
+# alchemy-vultr
+
+## 0.1.0
+
+### Minor Changes
+
+- [#1](https://github.com/Kennybll/alchemy-vultr/pull/1) [`3aeea8e`](https://github.com/Kennybll/alchemy-vultr/commit/3aeea8ed6732e6149853f9b070f837c00704ca23) Thanks [@Kennybll](https://github.com/Kennybll)! - Initial Alchemy Effect provider for Vultr: AWS-style service namespaces, factory-style resources, live-tested SSH/startup/VPC/firewall + stage isolation, Biome, and OIDC trusted publishing.
+
+- [#4](https://github.com/Kennybll/alchemy-vultr/pull/4) [`8656615`](https://github.com/Kennybll/alchemy-vultr/commit/86566152608ee83376977e606cc3d3e658abcb31) Thanks [@Kennybll](https://github.com/Kennybll)! - `Instance.Instance` now replaces the VM when a create-only ("first boot") input changes — `userData`, `sshKeyIds`, `scriptId`, `disablePublicIpv4`, `reservedIpv4`, `userScheme`, `appVariables`, and the new `bootstrapVersion` — matching the `ForceNew` fields of Vultr's Terraform provider. Previously `userData` was PATCHed (which cloud-init never replays) while `scriptId` and `sshKeyIds` were ignored outright, so Alchemy recorded a convergence that never physically happened.
+
+  A replacement-sensitive input that is still an unresolved Output now plans a replacement instead of falling back to the engine's in-place update, and reconcile fails with a typed `VultrCreateOnlyChange` rather than reporting converged attributes when it reaches a running VM with create-only drift. Set `replaceOnBootstrapChange: false` to opt out (the provider warns instead of replacing).
+
+- [#4](https://github.com/Kennybll/alchemy-vultr/pull/4) [`11cb0f4`](https://github.com/Kennybll/alchemy-vultr/commit/11cb0f4447869e90a8710d25db73bd51ebfb17d0) Thanks [@Kennybll](https://github.com/Kennybll)! - `Instance.Instance` no longer returns the `0.0.0.0` provisioning placeholder as `mainIp`. Reconcile now polls `GET /instances/{id}` until Vultr reports a routable public IPv4 (bounded by the new `readinessTimeout`, default 15 minutes, and `readinessPollInterval`, default 5 seconds), or fails with a typed `VultrNotReady` carrying the instance id, attempt count, and the last observed `main_ip`/`status`/`server_status`. Private, loopback, link-local, CGNAT, documentation, multicast, reserved, malformed, and IPv6 values are never returned as a public `mainIp`. Instances created with `disablePublicIpv4: true` do not wait.
+
+  Instance creation is now recoverable, which is what makes that wait safe. Every instance is tagged `alchemy-vultr-recover-<hash>` (alongside your own tags), keyed on stack + stage + resource FQN + create-only props rather than Alchemy's generation id, so a deployment interrupted between `POST /instances` and the state commit — including one that restarts a replacement with a fresh generation — adopts the VM Vultr already accepted instead of creating a duplicate. Creates use the new single-attempt `VultrClient.postOnce` and re-check for that tag after every ambiguous failure, so a lost create response results in exactly one `POST /instances`. Recovery fails closed with `VultrAmbiguousRecovery` if more than one instance claims the tag.
+
+  **Upgrading with `mainIp: "0.0.0.0"` already in state:** the fix prevents future bad creates but does not refresh an existing stable resource, because Alchemy reuses persisted attributes for no-op resources. Trigger one targeted reconcile of the instance (for example a durable label/tag change) or run a state sync to repair the recorded address and any DNS records derived from it.
