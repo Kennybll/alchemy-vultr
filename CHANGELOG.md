@@ -1,5 +1,11 @@
 # alchemy-vultr
 
+## 0.1.1
+
+### Patch Changes
+
+- [#10](https://github.com/Kennybll/alchemy-vultr/pull/10) [`022f693`](https://github.com/Kennybll/alchemy-vultr/commit/022f693daea1faa66477ffa604dc575f2c126aa7) Thanks [@Kennybll](https://github.com/Kennybll)! - Prevent duplicate paid instances after an ambiguous create response. `Instance.Instance` now sends exactly one `POST /instances` per reconciliation, polls only its stable ownership tag through delayed list visibility, and fails closed with `VultrCreateUncertain` when the bounded recovery window expires. The new `createRecoveryTimeout` and `createRecoveryPollInterval` props control that window and backoff, including when Effect durations have round-tripped through persisted state.
+
 ## 0.1.0
 
 ### Minor Changes
