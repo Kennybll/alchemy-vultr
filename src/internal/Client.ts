@@ -54,9 +54,9 @@ export interface VultrClientService {
    *
    * Retrying a create whose response was lost can provision the resource
    * several times over — the caller never regains control between attempts, so
-   * it cannot look for what the first attempt already created. Non-idempotent
-   * creates (instances, bare metal, …) drive their own retry loop around this,
-   * with an ownership lookup after every ambiguous failure.
+   * it cannot look for what the first attempt already created. A non-idempotent
+   * create must call this once, then recover only through provider-owned
+   * identity; an empty lookup is not permission to send another create POST.
    */
   readonly postOnce: <A = unknown>(
     path: string,
@@ -168,6 +168,7 @@ export const makeClient = (
               new VultrDecodeError({
                 method,
                 path,
+                phase: "request",
                 message: "Failed to encode request body as JSON",
                 cause,
               }),
@@ -222,6 +223,7 @@ export const makeClient = (
             new VultrDecodeError({
               method,
               path,
+              phase: "response",
               message: "Failed to read Vultr response body",
               cause,
             }),
@@ -238,6 +240,7 @@ export const makeClient = (
         return yield* new VultrDecodeError({
           method,
           path,
+          phase: "response",
           message: "Failed to decode Vultr JSON response",
           cause,
         });

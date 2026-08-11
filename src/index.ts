@@ -56,6 +56,7 @@ export {
   VultrApiError,
   VultrConflict,
   VultrCreateOnlyChange,
+  VultrCreateUncertain,
   VultrDecodeError,
   VultrInvalidToken,
   VultrNotFound,

@@ -8,7 +8,13 @@ import * as Effect from "effect/Effect";
 import { describe, expect, it } from "vitest";
 import { instanceLifecycle } from "../src/Instance/Instance.ts";
 import { RECOVERY_TAG_PREFIX, recoveryTag } from "../src/Instance/internal.ts";
-import { VultrAmbiguousRecovery, VultrNotFound, VultrNotReady } from "../src/internal/Error.ts";
+import {
+  VultrAmbiguousRecovery,
+  VultrApiError,
+  VultrCreateUncertain,
+  VultrNotFound,
+  VultrNotReady,
+} from "../src/internal/Error.ts";
 import { isPublicIpv4 } from "../src/internal/ipv4.ts";
 import { type FakeResponse, fakeVultrApi, type RecordedRequest } from "./helpers/fakeClient.ts";
 
@@ -18,9 +24,12 @@ const BASE = {
   osId: 2284,
   label: "example-app",
   // Keep unit tests in the millisecond range; production defaults are
-  // 15 minutes / 5 seconds.
+  // 15 minutes / 5 seconds for readiness and 2 minutes / 5 seconds for
+  // ambiguous-create recovery.
   readinessTimeout: "200 millis",
   readinessPollInterval: "1 millis",
+  createRecoveryTimeout: "100 millis",
+  createRecoveryPollInterval: "1 millis",
 } as const;
 
 const TAG = recoveryTag({
@@ -181,8 +190,9 @@ describe("Instance reconcile — readiness", () => {
 });
 
 describe("Instance reconcile — create recovery", () => {
-  it("performs exactly one POST when the create response is lost", async () => {
+  it("performs exactly one POST while waiting for a lost create to become visible", async () => {
     let created = false;
+    let recoveryLists = 0;
     const { api, attributes } = run((request) => {
       if (request.method === "POST" && request.path === "/instances") {
         // Vultr accepted the create; the response never made it back.
@@ -190,7 +200,14 @@ describe("Instance reconcile — create recovery", () => {
         return { status: 503, body: { error: "Service unavailable" } };
       }
       if (isList(request)) {
-        return { status: 200, body: { instances: created ? [ACTIVE] : [], meta: {} } };
+        if (!created) return { status: 200, body: { instances: [], meta: {} } };
+        recoveryLists++;
+        // Simulate eventual consistency: several successful tag-filtered lists
+        // remain empty after Vultr has accepted the create.
+        return {
+          status: 200,
+          body: { instances: recoveryLists < 4 ? [] : [ACTIVE], meta: {} },
+        };
       }
       return { status: 200, body: { instance: ACTIVE } };
     });
@@ -198,6 +215,136 @@ describe("Instance reconcile — create recovery", () => {
     const result = await attributes();
     expect(result.id).toBe("vm-1");
     expect(result.mainIp).toBe("149.28.225.185");
+    expect(recoveryLists).toBe(4);
+    expect(api.calls("POST", "/instances")).toHaveLength(1);
+  });
+
+  it.each([
+    [503, "Service unavailable", "VultrUnavailable"],
+    [429, "Rate limit exceeded", "VultrRateLimited"],
+    [409, "Instance create conflict", "VultrConflict"],
+  ] as const)(
+    "fails closed after an ambiguous %s response without re-POSTing",
+    async (status, message, errorTag) => {
+      const { api, failure } = run(
+        (request) => {
+          if (request.method === "POST") return { status, body: { error: message } };
+          return { status: 200, body: { instances: [], meta: {} } };
+        },
+        {
+          news: {
+            ...BASE,
+            createRecoveryTimeout: "50 millis",
+            createRecoveryPollInterval: "1 millis",
+          },
+        },
+      );
+
+      const error = (await failure()) as VultrCreateUncertain;
+      expect(error).toBeInstanceOf(VultrCreateUncertain);
+      expect(error.fqn).toBe("App");
+      expect(error.tag).toBe(TAG);
+      expect(error.attempts).toBeGreaterThan(1);
+      expect(error.elapsedMillis).toBeGreaterThan(0);
+      expect(error.originalError._tag).toBe(errorTag);
+      expect(api.calls("POST", "/instances")).toHaveLength(1);
+    },
+  );
+
+  it("enforces the recovery deadline while ownership lookups retry transient errors", async () => {
+    let posted = false;
+    const { api, failure } = run(
+      (request) => {
+        if (request.method === "POST") {
+          posted = true;
+          return { status: 503, body: { error: "Create response lost" } };
+        }
+        if (isList(request)) {
+          return posted
+            ? { status: 503, body: { error: "List unavailable" } }
+            : { status: 200, body: { instances: [], meta: {} } };
+        }
+        return { status: 200, body: { instance: ACTIVE } };
+      },
+      {
+        news: {
+          ...BASE,
+          createRecoveryTimeout: "50 millis",
+          createRecoveryPollInterval: "1 millis",
+        },
+      },
+    );
+
+    const error = (await failure()) as VultrCreateUncertain;
+    expect(error).toBeInstanceOf(VultrCreateUncertain);
+    expect(error.originalError._tag).toBe("VultrUnavailable");
+    // listAll's normal transient retries take several seconds; the recovery
+    // deadline interrupts that retry cycle instead of losing create context.
+    expect(error.elapsedMillis).toBeLessThan(1_000);
+    expect(api.calls("POST", "/instances")).toHaveLength(1);
+  });
+
+  it("fails a definite rejection immediately without entering recovery polling", async () => {
+    const { api, failure } = run((request) => {
+      if (request.method === "POST") {
+        return { status: 400, body: { error: "Invalid region" } };
+      }
+      return { status: 200, body: { instances: [], meta: {} } };
+    });
+
+    expect(await failure()).toBeInstanceOf(VultrApiError);
+    expect(api.calls("POST", "/instances")).toHaveLength(1);
+    // The only list is reconcile's pre-create ownership check. A definite
+    // rejection does not start ambiguous-create recovery.
+    expect(api.requests.filter(isList)).toHaveLength(1);
+  });
+
+  it("treats a successful response without an instance id as accepted-or-unknown", async () => {
+    let posted = false;
+    let recoveryLists = 0;
+    const { api, attributes } = run((request) => {
+      if (request.method === "POST") {
+        posted = true;
+        return { status: 202 };
+      }
+      if (isList(request)) {
+        if (!posted) return { status: 200, body: { instances: [], meta: {} } };
+        recoveryLists++;
+        return {
+          status: 200,
+          body: { instances: recoveryLists < 2 ? [] : [ACTIVE], meta: {} },
+        };
+      }
+      return { status: 200, body: { instance: ACTIVE } };
+    });
+
+    expect((await attributes()).id).toBe("vm-1");
+    expect(recoveryLists).toBe(2);
+    expect(api.calls("POST", "/instances")).toHaveLength(1);
+  });
+
+  it("fails closed if multiple instances appear during post-create recovery", async () => {
+    let posted = false;
+    const { api, failure } = run((request) => {
+      if (request.method === "POST") {
+        posted = true;
+        return { status: 503, body: { error: "Service unavailable" } };
+      }
+      if (isList(request)) {
+        return {
+          status: 200,
+          body: {
+            instances: posted ? [ACTIVE, instance({ id: "vm-2" })] : [],
+            meta: {},
+          },
+        };
+      }
+      return { status: 200, body: { instance: ACTIVE } };
+    });
+
+    const error = (await failure()) as VultrAmbiguousRecovery;
+    expect(error).toBeInstanceOf(VultrAmbiguousRecovery);
+    expect(error.candidateIds).toEqual(["vm-1", "vm-2"]);
     expect(api.calls("POST", "/instances")).toHaveLength(1);
   });
 
@@ -227,6 +374,13 @@ describe("Instance reconcile — create recovery", () => {
       recoveryTag({ stack: "test-stack", stage, fqn, props: props as never });
 
     expect(key({ ...BASE })).toBe(key({ ...BASE, label: "renamed", tags: ["extra"] }));
+    expect(key({ ...BASE })).toBe(
+      key({
+        ...BASE,
+        createRecoveryTimeout: "10 minutes",
+        createRecoveryPollInterval: "30 seconds",
+      }),
+    );
     expect(key({ ...BASE })).not.toBe(key({ ...BASE, userData: "changed" }));
     expect(key({ ...BASE })).not.toBe(key({ ...BASE }, "Other"));
     expect(key({ ...BASE })).not.toBe(key({ ...BASE }, "App", "prod"));

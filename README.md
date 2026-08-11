@@ -135,7 +135,12 @@ IPv4 — reconcile polls past the `0.0.0.0` provisioning placeholder (bounded by
 it. VPC-only instances (`disablePublicIpv4: true`) do not wait. Every instance
 also carries an `alchemy-vultr-recover-…` tag alongside your own tags: it is how
 a deployment that was interrupted mid-create finds the VM Vultr already accepted
-instead of provisioning a second one.
+instead of provisioning a second one. If create returns an ambiguous transport,
+5xx, rate-limit, conflict, or response-decoding failure, reconcile sends no
+second create request; it polls only that tag, bounded by
+`createRecoveryTimeout` (default 2 minutes) and
+`createRecoveryPollInterval` (default 5 seconds), then fails closed with
+`VultrCreateUncertain` if visibility never catches up.
 
 ### Networking
 `Vpc.Vpc`, `Vpc.NatGateway`, `Vpc.NatGatewayFirewallRule`, `Vpc.NatGatewayPortForwardingRule`, `Firewall.Group`, `Firewall.Rule`, `LoadBalancer.LoadBalancer`

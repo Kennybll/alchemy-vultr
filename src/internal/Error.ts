@@ -88,6 +88,8 @@ export class VultrUnavailable extends Data.TaggedError("VultrUnavailable")<{
 export class VultrDecodeError extends Data.TaggedError("VultrDecodeError")<{
   readonly method: string;
   readonly path: string;
+  /** Whether decoding failed before dispatch or while reading the response. */
+  readonly phase?: "request" | "response";
   readonly message: string;
   readonly cause?: unknown;
 }> {}
@@ -137,11 +139,32 @@ export class VultrAmbiguousRecovery extends Data.TaggedError("VultrAmbiguousReco
 }> {}
 
 /**
+ * Vultr may have accepted a create request, but the resource did not become
+ * visible through its ownership marker before the bounded recovery deadline.
+ * The provider fails closed instead of risking a second billable resource.
+ */
+export class VultrCreateUncertain extends Data.TaggedError("VultrCreateUncertain")<{
+  readonly resourceType: string;
+  readonly fqn: string;
+  readonly tag: string;
+  /** Number of ownership lookups performed after the ambiguous create. */
+  readonly attempts: number;
+  /** Wall-clock time spent recovering, in milliseconds. */
+  readonly elapsedMillis: number;
+  readonly originalError: VultrError;
+  readonly message: string;
+}> {}
+
+/**
  * Lifecycle failures raised by resource providers rather than by the HTTP
  * client. Kept out of {@link VultrError} so `VultrClientService` keeps
  * declaring only the errors it can actually produce.
  */
-export type VultrLifecycleError = VultrCreateOnlyChange | VultrNotReady | VultrAmbiguousRecovery;
+export type VultrLifecycleError =
+  | VultrCreateOnlyChange
+  | VultrNotReady
+  | VultrAmbiguousRecovery
+  | VultrCreateUncertain;
 
 export type VultrError =
   | VultrApiError

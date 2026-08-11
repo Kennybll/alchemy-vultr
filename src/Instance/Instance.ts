@@ -13,6 +13,8 @@ import {
   createInstanceOnce,
   createOnlyChanges,
   createOnlyChangesAtPlan,
+  DEFAULT_CREATE_RECOVERY_POLL_INTERVAL,
+  DEFAULT_CREATE_RECOVERY_TIMEOUT,
   DEFAULT_READINESS_POLL_INTERVAL,
   DEFAULT_READINESS_TIMEOUT,
   findOwnedInstance,
@@ -99,6 +101,20 @@ export interface InstanceProps {
    * ```
    */
   bootstrapVersion?: string;
+  /**
+   * How long reconcile polls the ownership tag after an ambiguous create
+   * response. The provider never sends another create POST during this window;
+   * expiry fails closed with `VultrCreateUncertain`.
+   *
+   * @default "2 minutes"
+   */
+  createRecoveryTimeout?: Duration.Input;
+  /**
+   * Cap on the ownership-tag recovery backoff (the first retry waits ≤ 1s).
+   *
+   * @default "5 seconds"
+   */
+  createRecoveryPollInterval?: Duration.Input;
   /**
    * How long reconcile waits for Vultr to assign a public IPv4 address before
    * failing with `VultrNotReady`. Ignored when `disablePublicIpv4` is set.
@@ -303,6 +319,14 @@ export const instanceLifecycle = Instance.Provider.of({
       live = yield* createInstanceOnce(client, {
         fqn,
         tag,
+        timeout:
+          news.createRecoveryTimeout !== undefined
+            ? Duration.fromInputUnsafe(normalizeDurationInput(news.createRecoveryTimeout))
+            : DEFAULT_CREATE_RECOVERY_TIMEOUT,
+        pollInterval:
+          news.createRecoveryPollInterval !== undefined
+            ? Duration.fromInputUnsafe(normalizeDurationInput(news.createRecoveryPollInterval))
+            : DEFAULT_CREATE_RECOVERY_POLL_INTERVAL,
         body: compact({
           region: news.region,
           plan: news.plan,

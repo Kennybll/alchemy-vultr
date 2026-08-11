@@ -1,3 +1,4 @@
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Redacted from "effect/Redacted";
@@ -6,8 +7,10 @@ import { describe, expect, it } from "vitest";
 import { fromApiKey } from "../src/Credentials.ts";
 import { catchNotFound, makeClient, VultrClient, VultrClientLive } from "../src/internal/Client.ts";
 import { compact, pickChanged, resourceId } from "../src/internal/defineResource.ts";
+import { normalizeDurationInput } from "../src/internal/duration.ts";
 import {
   VultrApiError,
+  VultrDecodeError,
   VultrInvalidToken,
   VultrNotFound,
   VultrRateLimited,
@@ -33,6 +36,18 @@ describe("helpers", () => {
     expect(resourceId("abc")).toBe("abc");
     expect(resourceId({ id: "xyz" })).toBe("xyz");
     expect(resourceId({ domain: "example.com" }, "domain")).toBe("example.com");
+  });
+
+  it("rehydrates Effect durations serialized through state JSON", () => {
+    const roundTrip = (duration: Duration.Duration) =>
+      Duration.fromInputUnsafe(
+        normalizeDurationInput(JSON.parse(JSON.stringify(duration)) as Duration.Input),
+      );
+
+    expect(Duration.toMillis(roundTrip(Duration.seconds(5)))).toBe(5_000);
+    expect(Duration.toNanosUnsafe(roundTrip(Duration.nanos(123n)))).toBe(123n);
+    expect(Duration.toMillis(roundTrip(Duration.infinity))).toBe(Number.POSITIVE_INFINITY);
+    expect(Duration.toMillis(roundTrip(Duration.negativeInfinity))).toBe(Number.NEGATIVE_INFINITY);
   });
 });
 
@@ -150,6 +165,38 @@ describe("VultrClient", () => {
     const error = await Effect.runPromise(client.get("/bad").pipe(Effect.flip));
     expect(error).toBeInstanceOf(VultrApiError);
     expect((error as VultrApiError).status).toBe(400);
+  });
+
+  it("distinguishes pre-dispatch encoding failures from ambiguous response decoding", async () => {
+    let executions = 0;
+    const http = {
+      execute: () => {
+        executions++;
+        return Effect.succeed({
+          status: 202,
+          text: Effect.succeed("{not-json"),
+          json: Effect.succeed({}),
+        });
+      },
+    };
+    const client = makeClient(http as never, Redacted.make("test-key"), "https://api.vultr.com/v2");
+
+    const responseError = (await Effect.runPromise(
+      client.postOnce("/instances", { body: {} }).pipe(Effect.flip),
+    )) as VultrDecodeError;
+    expect(responseError).toBeInstanceOf(VultrDecodeError);
+    expect(responseError.phase).toBe("response");
+    expect(executions).toBe(1);
+
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+    const requestError = (await Effect.runPromise(
+      client.postOnce("/instances", { body: circular }).pipe(Effect.flip),
+    )) as VultrDecodeError;
+    expect(requestError).toBeInstanceOf(VultrDecodeError);
+    expect(requestError.phase).toBe("request");
+    // Encoding failed before the transport could dispatch another request.
+    expect(executions).toBe(1);
   });
 
   it("provides a live layer over credentials", async () => {

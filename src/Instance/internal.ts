@@ -7,9 +7,16 @@ import { createHash } from "node:crypto";
 import { isResolved } from "alchemy/Diff";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import type { VultrClientService } from "../internal/Client.ts";
 import type { JsonObject } from "../internal/defineResource.ts";
-import { VultrAmbiguousRecovery, type VultrError, VultrNotReady } from "../internal/Error.ts";
+import {
+  VultrAmbiguousRecovery,
+  VultrCreateUncertain,
+  VultrDecodeError,
+  type VultrError,
+  VultrNotReady,
+} from "../internal/Error.ts";
 import { isPublicIpv4 } from "../internal/ipv4.ts";
 import type { InstanceProps } from "./Instance.ts";
 
@@ -225,15 +232,29 @@ export const findOwnedInstance = Effect.fn(function* (
 const isAmbiguousCreateFailure = (error: VultrError): boolean =>
   error._tag === "VultrUnavailable" ||
   error._tag === "VultrRateLimited" ||
-  error._tag === "VultrConflict";
+  error._tag === "VultrConflict" ||
+  (error._tag === "VultrDecodeError" && error.phase !== "request");
+
+export const DEFAULT_CREATE_RECOVERY_TIMEOUT = Duration.minutes(2);
+export const DEFAULT_CREATE_RECOVERY_POLL_INTERVAL = Duration.seconds(5);
+
+const finiteDurationMillis = (
+  duration: Duration.Duration,
+  fallback: Duration.Duration,
+  minimum: number,
+): number => {
+  const millis = Duration.toMillis(duration);
+  if (Number.isFinite(millis)) return Math.max(minimum, millis);
+  return millis < 0 ? minimum : Duration.toMillis(fallback);
+};
 
 /**
- * Create an instance at most once per accepted request.
+ * Create an instance with exactly one create POST per reconciliation.
  *
  * `client.post` retries transient failures internally, which for a create can
  * provision several VMs from one reconcile. This uses the single-attempt
- * `postOnce` and, after every ambiguous failure, looks for the instance the
- * lost request may already have created before it considers posting again.
+ * `postOnce`; after an ambiguous result, it polls only the ownership lookup.
+ * An empty lookup is never treated as proof that Vultr rejected the POST.
  */
 export const createInstanceOnce = Effect.fn(function* (
   client: VultrClientService,
@@ -241,36 +262,128 @@ export const createInstanceOnce = Effect.fn(function* (
     readonly body: JsonObject;
     readonly tag: string;
     readonly fqn: string;
-    readonly attempts?: number;
-    readonly backoff?: Duration.Duration;
+    readonly timeout?: Duration.Duration;
+    readonly pollInterval?: Duration.Duration;
   },
 ) {
-  const attempts = input.attempts ?? 3;
-  const backoff = input.backoff ?? Duration.seconds(2);
-  let lastError: VultrError | undefined;
+  const outcome = yield* client.postOnce<JsonObject>("/instances", { body: input.body }).pipe(
+    Effect.map((response) => ({ response, error: undefined as VultrError | undefined })),
+    Effect.catch((error: VultrError) =>
+      Effect.succeed({ response: undefined as JsonObject | undefined, error }),
+    ),
+  );
+  const payload = outcome.response;
+  const candidate =
+    payload && typeof payload === "object" ? ((payload.instance ?? payload) as unknown) : undefined;
+  if (
+    candidate &&
+    typeof candidate === "object" &&
+    !Array.isArray(candidate) &&
+    String((candidate as JsonObject).id ?? "").length > 0
+  ) {
+    return candidate as JsonObject;
+  }
 
-  for (let attempt = 1; attempt <= attempts; attempt++) {
-    const outcome = yield* client.postOnce<JsonObject>("/instances", { body: input.body }).pipe(
-      Effect.map((created) => ({ created, error: undefined as VultrError | undefined })),
-      Effect.catch((error: VultrError) =>
-        Effect.succeed({ created: undefined as JsonObject | undefined, error }),
+  // A successful status without a usable id is still accepted-or-unknown: the
+  // instance may exist even though the response body was empty or malformed.
+  const error =
+    outcome.error ??
+    new VultrDecodeError({
+      method: "POST",
+      path: "/instances",
+      phase: "response",
+      message: "Vultr instance create response did not contain an instance id",
+    });
+  if (!isAmbiguousCreateFailure(error)) return yield* error;
+
+  const timeoutMillis = finiteDurationMillis(
+    input.timeout ?? DEFAULT_CREATE_RECOVERY_TIMEOUT,
+    DEFAULT_CREATE_RECOVERY_TIMEOUT,
+    0,
+  );
+  const capMillis = finiteDurationMillis(
+    input.pollInterval ?? DEFAULT_CREATE_RECOVERY_POLL_INTERVAL,
+    DEFAULT_CREATE_RECOVERY_POLL_INTERVAL,
+    1,
+  );
+  let delayMillis = Math.min(1_000, capMillis);
+  let attempts = 0;
+  const clock = yield* Effect.clockWith((clock) => Effect.succeed(clock));
+  const startedAt = clock.currentTimeMillisUnsafe();
+  const elapsed = () => Math.max(0, clock.currentTimeMillisUnsafe() - startedAt);
+  const uncertain = () => {
+    const elapsedMillis = elapsed();
+    return new VultrCreateUncertain({
+      resourceType: RESOURCE_TYPE,
+      fqn: input.fqn,
+      tag: input.tag,
+      attempts,
+      elapsedMillis,
+      originalError: error,
+      message:
+        `Vultr may have accepted the instance create for ${input.fqn}, but no instance with ` +
+        `ownership tag ${input.tag} became visible after ${attempts} lookups over ` +
+        `${Duration.format(Duration.millis(elapsedMillis))}. No second create POST was sent. ` +
+        "Check Vultr for that tag before deploying again.",
+    });
+  };
+
+  yield* Effect.logWarning(
+    "Vultr instance create result is ambiguous — polling only the ownership tag",
+  ).pipe(Effect.annotateLogs({ fqn: input.fqn, tag: input.tag, error: error._tag }));
+
+  while (true) {
+    const elapsedBeforeLookup = elapsed();
+    if (elapsedBeforeLookup >= timeoutMillis) return yield* uncertain();
+
+    attempts++;
+    const lookupOutcome = yield* findOwnedInstance(client, input.tag, input.fqn).pipe(
+      // `listAll` owns transient HTTP retries. Bound the whole lookup by the
+      // remaining recovery budget so those retries cannot overrun the deadline.
+      Effect.timeoutOption(Duration.millis(timeoutMillis - elapsedBeforeLookup)),
+      Effect.map((lookup) => ({ _tag: "Success" as const, lookup })),
+      Effect.catch((lookupError: VultrAmbiguousRecovery | VultrError) =>
+        Effect.succeed({ _tag: "Failure" as const, lookupError }),
       ),
     );
-    if (outcome.created) {
-      return (outcome.created.instance ?? outcome.created) as JsonObject;
+    if (lookupOutcome._tag === "Failure") {
+      const lookupError = lookupOutcome.lookupError;
+      if (lookupError._tag === "VultrAmbiguousRecovery") return yield* lookupError;
+      if (!isAmbiguousCreateFailure(lookupError)) return yield* lookupError;
+      yield* Effect.logWarning(
+        "Vultr ownership lookup failed transiently — continuing recovery",
+      ).pipe(
+        Effect.annotateLogs({
+          fqn: input.fqn,
+          tag: input.tag,
+          attempt: attempts,
+          error: lookupError._tag,
+        }),
+      );
+    } else {
+      if (Option.isNone(lookupOutcome.lookup)) return yield* uncertain();
+      const recovered = Option.getOrUndefined(lookupOutcome.lookup);
+      if (recovered) return recovered;
     }
-    const error = outcome.error as VultrError;
-    if (!isAmbiguousCreateFailure(error)) return yield* error;
-    lastError = error;
 
-    yield* Effect.logWarning("Vultr instance create failed ambiguously — checking for a VM").pipe(
-      Effect.annotateLogs({ fqn: input.fqn, attempt, tag: input.tag, error: error._tag }),
+    const elapsedMillis = elapsed();
+    if (elapsedMillis >= timeoutMillis) return yield* uncertain();
+
+    const sleepMillis = Math.min(delayMillis, timeoutMillis - elapsedMillis);
+    yield* Effect.logInfo(
+      "Waiting for an ambiguously-created Vultr instance to become visible",
+    ).pipe(
+      Effect.annotateLogs({
+        fqn: input.fqn,
+        tag: input.tag,
+        attempt: attempts,
+        elapsedMillis,
+        sleepMillis,
+      }),
     );
-    const recovered = yield* findOwnedInstance(client, input.tag, input.fqn);
-    if (recovered) return recovered;
-    if (attempt < attempts) yield* Effect.sleep(backoff);
+    yield* Effect.sleep(Duration.millis(sleepMillis));
+    delayMillis = Math.min(capMillis, delayMillis * 2);
   }
-  return yield* lastError as VultrError;
 });
 
 // ── readiness ─────────────────────────────────────────────────────────────────
