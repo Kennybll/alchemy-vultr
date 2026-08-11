@@ -5,10 +5,33 @@ import * as Duration from "effect/Duration";
  * Duration object in state (same approach as alchemy/Util Duration helpers).
  */
 export const normalizeDurationInput = (input: Duration.Input): Duration.Input => {
-  if (typeof input === "object" && input !== null && "value" in input) {
-    const value = (input as { value: unknown }).value;
+  if (typeof input !== "object" || input === null) return input;
+
+  // Effect 3 durations persisted their scalar representation under `value`.
+  if ("value" in input) {
+    const value = (input as { readonly value: unknown }).value;
     if (typeof value === "bigint") return Duration.nanos(value);
     if (typeof value === "number") return Duration.millis(value);
+  }
+
+  // Effect 4's `Duration.toJSON` shape is not itself a Duration.Input: without
+  // rehydration, `fromInputUnsafe` treats it as an empty DurationObject (zero).
+  const json = input as unknown as {
+    readonly _id?: unknown;
+    readonly _tag?: "Millis" | "Nanos" | "Infinity" | "NegativeInfinity";
+    readonly millis?: unknown;
+    readonly nanos?: unknown;
+  };
+  if (json._id === "Duration") {
+    if (json._tag === "Millis" && typeof json.millis === "number") return json.millis;
+    if (
+      json._tag === "Nanos" &&
+      (typeof json.nanos === "string" || typeof json.nanos === "bigint")
+    ) {
+      return BigInt(json.nanos);
+    }
+    if (json._tag === "Infinity") return "Infinity";
+    if (json._tag === "NegativeInfinity") return "-Infinity";
   }
   return input;
 };

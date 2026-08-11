@@ -49,7 +49,7 @@ Bundle via `Provider.ProviderCollection` + `providers()` Layer; credentials are 
 
 Two rules for resources that provision asynchronously (instances, bare metal, databases, clusters):
 
-- **Create once.** `client.post` retries transient failures internally, so a lost response can provision duplicates. Use `client.postOnce` plus a provider-owned ownership tag, and look for that tag after every ambiguous failure before posting again. Key the tag on stack + stage + FQN + create-only props — never on the Alchemy `instanceId`, which is re-minted when a replacement restarts. Fail closed when more than one candidate matches.
+- **Create once.** `client.post` retries transient failures internally, so a lost response can provision duplicates. Use `client.postOnce` plus a provider-owned ownership tag. After an ambiguous result, poll only that tag for a bounded window and fail closed if it stays absent — never re-POST during the same reconciliation. A later reconciliation must look for the tag before considering a new POST. Key the tag on stack + stage + FQN + create-only props — never on the Alchemy `instanceId`, which is re-minted when a replacement restarts. Fail closed when more than one candidate matches.
 - **Never return a placeholder attribute.** Poll until the value is real (`main_ip` starts as `0.0.0.0`), bounded by a prop-configurable timeout, and fail with a typed error carrying id/attempts/last observed value. Alchemy reuses persisted attributes for no-op resources, so a placeholder written once survives every later deploy.
 
 ## Typed error doctrine
