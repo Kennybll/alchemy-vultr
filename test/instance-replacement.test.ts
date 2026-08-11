@@ -193,7 +193,7 @@ describe("Instance reconcile — create-only inputs are never silently converged
     await run;
     const patches = api.calls("PATCH");
     expect(patches).toHaveLength(1);
-    expect(patches[0]?.body).toEqual({ label: "renamed" });
+    expect(patches[0]?.body.label).toBe("renamed");
     expect(patches[0]?.body).not.toHaveProperty("user_data");
     expect(patches[0]?.body).not.toHaveProperty("user_scheme");
   });
@@ -205,6 +205,6 @@ describe("Instance reconcile — create-only inputs are never silently converged
     );
     const attributes = (await run) as { id: string };
     expect(attributes.id).toBe("vm-1");
-    expect(api.calls("PATCH")[0]?.body).toEqual({ label: "renamed" });
+    expect(api.calls("PATCH")[0]?.body.label).toBe("renamed");
   });
 });

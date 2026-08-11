@@ -50,13 +50,16 @@ export * as Instance from "./Instance/index.ts";
 export * as Iso from "./Iso/index.ts";
 export type { VultrClientService } from "./internal/Client.ts";
 export { DEFAULT_BASE_URL, VultrClient } from "./internal/Client.ts";
-export type { VultrError } from "./internal/Error.ts";
+export type { VultrError, VultrLifecycleError } from "./internal/Error.ts";
 export {
+  VultrAmbiguousRecovery,
   VultrApiError,
   VultrConflict,
+  VultrCreateOnlyChange,
   VultrDecodeError,
   VultrInvalidToken,
   VultrNotFound,
+  VultrNotReady,
   VultrRateLimited,
   VultrUnauthorizedIp,
   VultrUnavailable,

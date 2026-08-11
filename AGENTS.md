@@ -45,7 +45,12 @@ Bundle via `Provider.ProviderCollection` + `providers()` Layer; credentials are 
 3. **Sync** — diff observed vs desired; apply only deltas.
 4. **Return** — fresh attributes (re-read when needed).
 
-`diff` must guard with `isResolved(news)`. Delete must be idempotent via `Effect.catchTag("VultrNotFound", …)` / `catchNotFound`.
+`diff` must guard with `isResolved(news)` — but guard *per replacement-sensitive prop*, not by returning early for the whole object: a bare `if (!isResolved(news)) return undefined` hands the decision to the engine, which defaults to `update`, silently converging inputs the API cannot apply. Delete must be idempotent via `Effect.catchTag("VultrNotFound", …)` / `catchNotFound`.
+
+Two rules for resources that provision asynchronously (instances, bare metal, databases, clusters):
+
+- **Create once.** `client.post` retries transient failures internally, so a lost response can provision duplicates. Use `client.postOnce` plus a provider-owned ownership tag, and look for that tag after every ambiguous failure before posting again. Key the tag on stack + stage + FQN + create-only props — never on the Alchemy `instanceId`, which is re-minted when a replacement restarts. Fail closed when more than one candidate matches.
+- **Never return a placeholder attribute.** Poll until the value is real (`main_ip` starts as `0.0.0.0`), bounded by a prop-configurable timeout, and fail with a typed error carrying id/attempts/last observed value. Alchemy reuses persisted attributes for no-op resources, so a placeholder written once survives every later deploy.
 
 ## Typed error doctrine
 

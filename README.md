@@ -129,6 +129,14 @@ digest as `bootstrapVersion` when the script body should rebuild the VM. Set
 provider then warns rather than replacing, and still never reports a first-boot
 change as applied.
 
+`instance.mainIp` is only returned once Vultr has assigned a routable public
+IPv4 — reconcile polls past the `0.0.0.0` provisioning placeholder (bounded by
+`readinessTimeout`, default 15 minutes) so downstream DNS records never publish
+it. VPC-only instances (`disablePublicIpv4: true`) do not wait. Every instance
+also carries an `alchemy-vultr-recover-…` tag alongside your own tags: it is how
+a deployment that was interrupted mid-create finds the VM Vultr already accepted
+instead of provisioning a second one.
+
 ### Networking
 `Vpc.Vpc`, `Vpc.NatGateway`, `Vpc.NatGatewayFirewallRule`, `Vpc.NatGatewayPortForwardingRule`, `Firewall.Group`, `Firewall.Rule`, `LoadBalancer.LoadBalancer`
 

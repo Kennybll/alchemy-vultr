@@ -107,11 +107,41 @@ export class VultrCreateOnlyChange extends Data.TaggedError("VultrCreateOnlyChan
 }> {}
 
 /**
+ * A resource never reached a usable state within its readiness budget — e.g.
+ * Vultr kept reporting the `0.0.0.0` provisioning placeholder instead of
+ * assigning a public IPv4 address.
+ */
+export class VultrNotReady extends Data.TaggedError("VultrNotReady")<{
+  readonly resourceType: string;
+  readonly id: string;
+  readonly attempts: number;
+  /** Total time spent polling, in milliseconds. */
+  readonly waitedMillis: number;
+  readonly lastIp?: string;
+  readonly status?: string;
+  readonly serverStatus?: string;
+  readonly message: string;
+}> {}
+
+/**
+ * More than one live resource carries this resource's ownership marker, so the
+ * provider cannot tell which one it created. Fails closed rather than picking
+ * one arbitrarily and orphaning (or deleting) the other.
+ */
+export class VultrAmbiguousRecovery extends Data.TaggedError("VultrAmbiguousRecovery")<{
+  readonly resourceType: string;
+  readonly fqn: string;
+  readonly tag: string;
+  readonly candidateIds: ReadonlyArray<string>;
+  readonly message: string;
+}> {}
+
+/**
  * Lifecycle failures raised by resource providers rather than by the HTTP
  * client. Kept out of {@link VultrError} so `VultrClientService` keeps
  * declaring only the errors it can actually produce.
  */
-export type VultrLifecycleError = VultrCreateOnlyChange;
+export type VultrLifecycleError = VultrCreateOnlyChange | VultrNotReady | VultrAmbiguousRecovery;
 
 export type VultrError =
   | VultrApiError

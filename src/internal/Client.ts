@@ -49,6 +49,19 @@ export interface VultrClientService {
     path: string,
     options?: VultrRequestOptions,
   ) => Effect.Effect<A, VultrClientError>;
+  /**
+   * `POST` with **no** transient retry.
+   *
+   * Retrying a create whose response was lost can provision the resource
+   * several times over — the caller never regains control between attempts, so
+   * it cannot look for what the first attempt already created. Non-idempotent
+   * creates (instances, bare metal, …) drive their own retry loop around this,
+   * with an ownership lookup after every ambiguous failure.
+   */
+  readonly postOnce: <A = unknown>(
+    path: string,
+    options?: VultrRequestOptions,
+  ) => Effect.Effect<A, VultrClientError>;
   readonly put: <A = unknown>(
     path: string,
     options?: VultrRequestOptions,
@@ -242,6 +255,7 @@ export const makeClient = (
     baseUrl,
     get: (path, options) => execute("GET", path, options),
     post: (path, options) => execute("POST", path, options),
+    postOnce: (path, options) => executeOnce("POST", path, options),
     put: (path, options) => execute("PUT", path, options),
     patch: (path, options) => execute("PATCH", path, options),
     del: (path, options) => execute("DELETE", path, options),

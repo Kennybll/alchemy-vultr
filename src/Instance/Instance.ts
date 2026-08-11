@@ -1,17 +1,26 @@
-import { Resource } from "alchemy";
+import { Resource, Stack, Stage } from "alchemy";
 import * as Provider from "alchemy/Provider";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import type * as Redacted from "effect/Redacted";
 import { catchNotFound, VultrClient } from "../internal/Client.ts";
 import { compact, type JsonObject, pickChanged } from "../internal/defineResource.ts";
+import { normalizeDurationInput } from "../internal/duration.ts";
 import { VultrCreateOnlyChange } from "../internal/Error.ts";
 import { redact } from "../internal/redacted.ts";
 import type { Providers } from "../Providers.ts";
 import {
+  createInstanceOnce,
   createOnlyChanges,
   createOnlyChangesAtPlan,
+  DEFAULT_READINESS_POLL_INTERVAL,
+  DEFAULT_READINESS_TIMEOUT,
+  findOwnedInstance,
+  mergeRecoveryTag,
+  recoveryTag,
   replacementProps,
   replacesOnBootstrapChange,
+  waitForInstanceReady,
 } from "./internal.ts";
 
 export interface InstanceProps {
@@ -90,6 +99,19 @@ export interface InstanceProps {
    * ```
    */
   bootstrapVersion?: string;
+  /**
+   * How long reconcile waits for Vultr to assign a public IPv4 address before
+   * failing with `VultrNotReady`. Ignored when `disablePublicIpv4` is set.
+   *
+   * @default "15 minutes"
+   */
+  readinessTimeout?: Duration.Input;
+  /**
+   * Cap on the readiness poll backoff (the first retry always waits ≤ 1s).
+   *
+   * @default "5 seconds"
+   */
+  readinessPollInterval?: Duration.Input;
 }
 
 export type Instance = Resource<
@@ -247,8 +269,16 @@ export const instanceLifecycle = Instance.Provider.of({
     if (!response) return undefined;
     return toAttributes((response.instance ?? response) as JsonObject);
   }),
-  reconcile: Effect.fn(function* ({ news, olds, output }) {
+  reconcile: Effect.fn(function* ({ fqn, news, olds, output }) {
     const client = yield* yield* VultrClient;
+    const stack = yield* Stack;
+    const stage = yield* Stage;
+
+    // Ownership marker for this logical create attempt. Written on create so a
+    // deployment interrupted between `POST /instances` and the state commit can
+    // find the VM Vultr already accepted instead of provisioning another one.
+    const tag = recoveryTag({ stack: stack.name, stage, fqn, props: news });
+    const desiredTags = mergeRecoveryTag(news.tags, tag);
 
     let live: JsonObject | undefined;
     if (output?.id) {
@@ -258,8 +288,21 @@ export const instanceLifecycle = Instance.Provider.of({
       }
     }
 
+    // No usable id: before creating, check whether a previous attempt already
+    // created this instance (fails closed if more than one VM claims the tag).
     if (!live) {
-      const created = yield* client.post<JsonObject>("/instances", {
+      live = yield* findOwnedInstance(client, tag, fqn);
+      if (live) {
+        yield* Effect.logInfo("Recovered a Vultr instance from an interrupted create").pipe(
+          Effect.annotateLogs({ fqn, tag, instanceId: String(live.id ?? "") }),
+        );
+      }
+    }
+
+    if (!live) {
+      live = yield* createInstanceOnce(client, {
+        fqn,
+        tag,
         body: compact({
           region: news.region,
           plan: news.plan,
@@ -270,7 +313,7 @@ export const instanceLifecycle = Instance.Provider.of({
           iso_id: news.isoId,
           hostname: news.hostname,
           label: news.label,
-          tags: news.tags,
+          tags: desiredTags,
           enable_ipv6: news.enableIpv6,
           disable_public_ipv4: news.disablePublicIpv4,
           ddos_protection: news.ddosProtection,
@@ -285,7 +328,6 @@ export const instanceLifecycle = Instance.Provider.of({
           app_variables: news.appVariables,
         }),
       });
-      live = (created.instance ?? created) as JsonObject;
     } else {
       // Backstop for the paths that reach an existing VM without a plan
       // diff (adoption, forced updates). Create-only inputs cannot be
@@ -296,15 +338,23 @@ export const instanceLifecycle = Instance.Provider.of({
         {
           plan: news.plan,
           label: news.label,
-          tags: news.tags,
           enable_ipv6: news.enableIpv6,
           backups: news.backups,
           firewall_group_id: news.firewallGroupId,
           ddos_protection: news.ddosProtection,
         },
         live,
-        ["plan", "label", "tags", "enable_ipv6", "backups", "firewall_group_id", "ddos_protection"],
+        ["plan", "label", "enable_ipv6", "backups", "firewall_group_id", "ddos_protection"],
       );
+      // Tags compare as a set: Vultr does not preserve order, and the desired
+      // set always carries the ownership marker alongside the user's tags.
+      const liveTags = new Set((live.tags as string[] | undefined) ?? []);
+      if (
+        desiredTags.length !== liveTags.size ||
+        desiredTags.some((desired) => !liveTags.has(desired))
+      ) {
+        body.tags = desiredTags;
+      }
       if (Object.keys(body).length > 0) {
         const updated = yield* client.patch<JsonObject>(`/instances/${live.id}`, { body });
         live = (updated?.instance ?? updated ?? live) as JsonObject;
@@ -335,9 +385,19 @@ export const instanceLifecycle = Instance.Provider.of({
       }
     }
 
-    // Refresh for latest status / IPs.
-    const refreshed = yield* client.get<JsonObject>(`/instances/${String(live.id)}`);
-    return toAttributes((refreshed.instance ?? refreshed) as JsonObject);
+    // Refresh for latest status / IPs. A freshly created VM reports the
+    // provisioning placeholder `0.0.0.0` for a while, and returning that would
+    // publish an unroutable address to every consumer of `mainIp`.
+    const ready = yield* waitForInstanceReady(client, String(live.id), {
+      requirePublicIpv4: news.disablePublicIpv4 !== true,
+      timeout: news.readinessTimeout
+        ? Duration.fromInputUnsafe(normalizeDurationInput(news.readinessTimeout))
+        : DEFAULT_READINESS_TIMEOUT,
+      pollInterval: news.readinessPollInterval
+        ? Duration.fromInputUnsafe(normalizeDurationInput(news.readinessPollInterval))
+        : DEFAULT_READINESS_POLL_INTERVAL,
+    });
+    return toAttributes(ready);
   }),
   delete: Effect.fn(function* ({ output }) {
     if (!output.id) return;

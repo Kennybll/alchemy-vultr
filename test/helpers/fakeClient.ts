@@ -4,10 +4,21 @@
  * Requests go through the real {@link makeClient} so error classification and
  * transient-retry behaviour are exercised; only the transport is faked.
  */
+import { Stack, Stage } from "alchemy";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Redacted from "effect/Redacted";
 import { makeClient, VultrClient, type VultrClientService } from "../../src/internal/Client.ts";
+
+/**
+ * The stack/stage services the engine provides around every lifecycle call —
+ * providers use them to scope physical names and ownership markers.
+ */
+export const stackScope = (stack = "test-stack", stage = "test") =>
+  Layer.mergeAll(
+    Layer.succeed(Stage, stage),
+    Layer.succeed(Stack, { name: stack, stage } as never),
+  );
 
 export interface RecordedRequest {
   readonly method: string;
@@ -47,7 +58,7 @@ const decodeBody = (body: unknown): any => {
 
 export interface FakeVultrApi {
   readonly client: VultrClientService;
-  readonly layer: Layer.Layer<VultrClient>;
+  readonly layer: Layer.Layer<VultrClient | Stack | Stage>;
   readonly requests: RecordedRequest[];
   /** Requests matching a method (and optionally a path prefix). */
   readonly calls: (method: string, pathPrefix?: string) => RecordedRequest[];
@@ -83,7 +94,7 @@ export const fakeVultrApi = (respond: Responder): FakeVultrApi => {
   const client = makeClient(http as never, Redacted.make("test-key"), BASE_URL);
   return {
     client,
-    layer: Layer.succeed(VultrClient, Effect.succeed(client)),
+    layer: Layer.mergeAll(Layer.succeed(VultrClient, Effect.succeed(client)), stackScope()),
     requests,
     calls: (method, pathPrefix) =>
       requests.filter(
