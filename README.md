@@ -115,6 +115,28 @@ Include `Vultr.providers()` in your stack. Type IDs are `Vultr.<Service>.<Resour
 ### Compute
 `Instance.Instance`, `Instance.Ipv4`, `Instance.Template`, `BareMetal.Server`, `Snapshot.Snapshot`, `Snapshot.FromUrl`, `Iso.Iso`, `ReservedIp.ReservedIp`, `ReverseDns.Ipv4`, `ReverseDns.Ipv6`
 
+Vultr only consumes an instance's first-boot inputs while the VM is being
+provisioned, so `Instance.Instance` treats them as replacement inputs — the same
+fields Vultr's Terraform provider marks `ForceNew`:
+
+| Replaces the VM | Updates in place |
+| --- | --- |
+| `region`, `hostname`, `osId`, `appId`, `imageId`, `snapshotId`, `isoId`, `userData`, `sshKeyIds`, `scriptId`, `disablePublicIpv4`, `reservedIpv4`, `userScheme`, `appVariables`, `bootstrapVersion` | `label`, `tags`, `plan`, `backups`, `enableIpv6`, `ddosProtection`, `firewallGroupId`, `vpcIds` |
+
+A startup script whose *contents* change keeps the same `scriptId`, so pass a
+digest as `bootstrapVersion` when the script body should rebuild the VM. Set
+`replaceOnBootstrapChange: false` to manage first-boot state out of band — the
+provider then warns rather than replacing, and still never reports a first-boot
+change as applied.
+
+`instance.mainIp` is only returned once Vultr has assigned a routable public
+IPv4 — reconcile polls past the `0.0.0.0` provisioning placeholder (bounded by
+`readinessTimeout`, default 15 minutes) so downstream DNS records never publish
+it. VPC-only instances (`disablePublicIpv4: true`) do not wait. Every instance
+also carries an `alchemy-vultr-recover-…` tag alongside your own tags: it is how
+a deployment that was interrupted mid-create finds the VM Vultr already accepted
+instead of provisioning a second one.
+
 ### Networking
 `Vpc.Vpc`, `Vpc.NatGateway`, `Vpc.NatGatewayFirewallRule`, `Vpc.NatGatewayPortForwardingRule`, `Firewall.Group`, `Firewall.Rule`, `LoadBalancer.LoadBalancer`
 
