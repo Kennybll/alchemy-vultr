@@ -1,6 +1,6 @@
 {
   "name": "alchemy-vultr",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Alchemy Effect provider for Vultr — every Vultr primitive as typed Infrastructure-as-Effects resources",
   "license": "MIT",
   "author": "Kennybll",
