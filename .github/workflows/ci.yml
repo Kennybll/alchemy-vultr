@@ -9,10 +9,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # No submodules: `repos/` vendors Alchemy and Effect for local reference only.
+      # Nothing in typecheck/lint/test/build reads it, and a recursive clone drags in
+      # kubernetes, expo, azure-rest-api-specs, and aws-sdk-js-v3.
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
