@@ -44,7 +44,7 @@ jobs:
         with:
           # Full history for @changesets/changelog-github (PR/commit links).
           fetch-depth: 0
-          submodules: recursive
+          # No submodules — see ci.yml.
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
