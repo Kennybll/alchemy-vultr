@@ -58,6 +58,8 @@ Env credentials for Alchemy auth require `CI=1` (or an interactive
 | Nested list for nuke | Not an OpenAPI concern | Parent-scoped resources must fan out (VPCs→NAT→rules, domains→records, …) — empty `list()` is wrong for nuke |
 | DNS domain update | Some generated clients show `PUT /domains/{domain}` | Confirm before relying on PUT vs PATCH in providers — same class of bug as VPC |
 | Block storage snapshots | Nested under volume in some docs | Account list is `GET /blocks/snapshots` with parent id on the item (`block_id`) |
+| Instance first-boot inputs | `PATCH /instances/{id}` documents a `user_data` field, implying it is updatable | **Accepting the PATCH is not applying it.** cloud-init consumes `user_data` on first boot only, and `script_id` / `sshkey_id` / `user_scheme` / `app_variables` are not updatable at all — a running VM keeps its original bootstrap. The provider treats all of them as replacement inputs (Terraform marks the same fields `ForceNew`); see `replaceOnBootstrapChange`. |
+| Instance read-back of bootstrap inputs | Instance object implied to echo its create body | `GET /instances/{id}` returns no `script_id`, `sshkey_id`, or `user_data` (user data has its own `GET /instances/{id}/user-data`), so drift on those props can only be detected against previously deployed props, never against live state |
 
 ### Confirmed live failures (2026-07-25)
 

@@ -92,6 +92,27 @@ export class VultrDecodeError extends Data.TaggedError("VultrDecodeError")<{
   readonly cause?: unknown;
 }> {}
 
+/**
+ * A create-only ("first boot") input changed on a resource that is already
+ * deployed. Vultr has no API to re-apply it, so the provider fails instead of
+ * reporting a convergence that never physically happened — the plan must
+ * replace the resource.
+ */
+export class VultrCreateOnlyChange extends Data.TaggedError("VultrCreateOnlyChange")<{
+  readonly resourceType: string;
+  readonly id?: string;
+  /** Props that changed and can only take effect on a fresh resource. */
+  readonly props: ReadonlyArray<string>;
+  readonly message: string;
+}> {}
+
+/**
+ * Lifecycle failures raised by resource providers rather than by the HTTP
+ * client. Kept out of {@link VultrError} so `VultrClientService` keeps
+ * declaring only the errors it can actually produce.
+ */
+export type VultrLifecycleError = VultrCreateOnlyChange;
+
 export type VultrError =
   | VultrApiError
   | VultrUnauthorizedIp

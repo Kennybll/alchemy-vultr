@@ -115,6 +115,20 @@ Include `Vultr.providers()` in your stack. Type IDs are `Vultr.<Service>.<Resour
 ### Compute
 `Instance.Instance`, `Instance.Ipv4`, `Instance.Template`, `BareMetal.Server`, `Snapshot.Snapshot`, `Snapshot.FromUrl`, `Iso.Iso`, `ReservedIp.ReservedIp`, `ReverseDns.Ipv4`, `ReverseDns.Ipv6`
 
+Vultr only consumes an instance's first-boot inputs while the VM is being
+provisioned, so `Instance.Instance` treats them as replacement inputs — the same
+fields Vultr's Terraform provider marks `ForceNew`:
+
+| Replaces the VM | Updates in place |
+| --- | --- |
+| `region`, `hostname`, `osId`, `appId`, `imageId`, `snapshotId`, `isoId`, `userData`, `sshKeyIds`, `scriptId`, `disablePublicIpv4`, `reservedIpv4`, `userScheme`, `appVariables`, `bootstrapVersion` | `label`, `tags`, `plan`, `backups`, `enableIpv6`, `ddosProtection`, `firewallGroupId`, `vpcIds` |
+
+A startup script whose *contents* change keeps the same `scriptId`, so pass a
+digest as `bootstrapVersion` when the script body should rebuild the VM. Set
+`replaceOnBootstrapChange: false` to manage first-boot state out of band — the
+provider then warns rather than replacing, and still never reports a first-boot
+change as applied.
+
 ### Networking
 `Vpc.Vpc`, `Vpc.NatGateway`, `Vpc.NatGatewayFirewallRule`, `Vpc.NatGatewayPortForwardingRule`, `Firewall.Group`, `Firewall.Rule`, `LoadBalancer.LoadBalancer`
 
