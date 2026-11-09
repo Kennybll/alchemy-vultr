@@ -129,13 +129,18 @@ digest as `bootstrapVersion` when the script body should rebuild the VM. Set
 provider then warns rather than replacing, and still never reports a first-boot
 change as applied.
 
-`instance.mainIp` is only returned once Vultr has assigned a routable public
-IPv4 — reconcile polls past the `0.0.0.0` provisioning placeholder (bounded by
-`readinessTimeout`, default 15 minutes) so downstream DNS records never publish
-it. VPC-only instances (`disablePublicIpv4: true`) do not wait. Every instance
-also carries an `alchemy-vultr-recover-…` tag alongside your own tags: it is how
-a deployment that was interrupted mid-create finds the VM Vultr already accepted
-instead of provisioning a second one. If create returns an ambiguous transport,
+`Instance.Instance` returns only after Vultr reports the requested `plan`,
+`status: "active"`, and `server_status: "ok"`; public-IPv4 instances also wait
+for a routable address. This prevents a resize from appearing complete while the
+old plan is still live or Vultr has the VM locked. Readiness is bounded by
+`readinessTimeout` (default 15 minutes), and its polling performs only `GET`s
+after the accepted create or update. VPC-only instances skip the public-IP
+check (`disablePublicIpv4: true`) but still wait for plan and lifecycle
+convergence. Intentional stopped power state is not changed or required. Every
+instance also carries an `alchemy-vultr-recover-…` tag alongside your own tags:
+it is how a deployment that was interrupted mid-create finds the VM Vultr
+already accepted instead of provisioning a second one. If create returns an
+ambiguous transport,
 5xx, rate-limit, conflict, or response-decoding failure, reconcile sends no
 second create request; it polls only that tag, bounded by
 `createRecoveryTimeout` (default 2 minutes) and
