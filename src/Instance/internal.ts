@@ -389,6 +389,8 @@ export const createInstanceOnce = Effect.fn(function* (
 // ── readiness ─────────────────────────────────────────────────────────────────
 
 export interface ReadinessOptions {
+  /** Plan that the create or accepted update requested. */
+  readonly expectedPlan: string;
   /** Wait for a routable public IPv4 (false for `disablePublicIpv4` VMs). */
   readonly requirePublicIpv4: boolean;
   /** Hard bound on the total wait. */
@@ -406,11 +408,13 @@ const getInstance = (client: VultrClientService, id: string) =>
     .pipe(Effect.map((response) => (response.instance ?? response) as JsonObject));
 
 /**
- * Poll `GET /instances/{id}` until Vultr reports a usable address.
+ * Poll `GET /instances/{id}` until the requested plan and lifecycle state
+ * converge, and until a required public address is routable.
  *
- * Only the "still provisioning" condition is retried here — authentication,
- * authorization, not-found, and decode failures fail immediately, and the
- * client owns retries for transient HTTP failures.
+ * This loop intentionally performs GETs only: create or PATCH happens once
+ * before readiness starts, and waiting never repeats a mutating request.
+ * Authentication, authorization, not-found, and decode failures fail
+ * immediately; the client owns retries for transient HTTP failures.
  */
 export const waitForInstanceReady = Effect.fn(function* (
   client: VultrClientService,
@@ -427,14 +431,26 @@ export const waitForInstanceReady = Effect.fn(function* (
     attempt++;
     const live = yield* getInstance(client, id);
     const mainIp = String(live.main_ip ?? "");
-    if (!options.requirePublicIpv4 || isPublicIpv4(mainIp)) return live;
+    const observedPlan = String(live.plan ?? "");
+    const status = String(live.status ?? "");
+    const serverStatus = String(live.server_status ?? "");
+    const powerStatus = String(live.power_status ?? "");
+    const hasRequestedPlan = observedPlan === options.expectedPlan;
+    const isActive = status === "active";
+    const isServerReady = serverStatus === "ok";
+    const hasRequiredIp = !options.requirePublicIpv4 || isPublicIpv4(mainIp);
+    if (hasRequestedPlan && isActive && isServerReady && hasRequiredIp) return live;
 
     const annotations = {
       instanceId: id,
       attempt,
       mainIp,
-      status: String(live.status ?? ""),
-      serverStatus: String(live.server_status ?? ""),
+      expectedPlan: options.expectedPlan,
+      observedPlan,
+      status,
+      serverStatus,
+      powerStatus,
+      requirePublicIpv4: options.requirePublicIpv4,
       waitedMillis,
     };
     if (waitedMillis + delayMillis > timeoutMillis) {
@@ -444,16 +460,21 @@ export const waitForInstanceReady = Effect.fn(function* (
         attempts: attempt,
         waitedMillis,
         lastIp: mainIp,
-        status: annotations.status,
-        serverStatus: annotations.serverStatus,
+        desiredPlan: options.expectedPlan,
+        observedPlan,
+        status,
+        serverStatus,
+        powerStatus,
         message:
-          `Vultr instance ${id} still reports main_ip "${mainIp}" after ${attempt} checks over ` +
-          `${Duration.format(Duration.millis(waitedMillis))} (status ${annotations.status}, ` +
-          `server_status ${annotations.serverStatus}). Publishing that address would break every ` +
-          "consumer of mainIp; raise readinessTimeout, or set disablePublicIpv4 for a VPC-only VM.",
+          `Vultr instance ${id} did not converge after ${attempt} checks over ` +
+          `${Duration.format(Duration.millis(waitedMillis))}: desired plan "${options.expectedPlan}", ` +
+          `observed plan "${observedPlan}", status "${status}", server_status ` +
+          `"${serverStatus}", main_ip "${mainIp}", power_status "${powerStatus}". ` +
+          "The provider does not require a running power state; raise readinessTimeout after " +
+          "checking Vultr's lifecycle progress.",
       });
     }
-    yield* Effect.logInfo("Waiting for Vultr to assign a public IPv4").pipe(
+    yield* Effect.logInfo("Waiting for Vultr instance readiness convergence").pipe(
       Effect.annotateLogs(annotations),
     );
     yield* Effect.sleep(Duration.millis(delayMillis));

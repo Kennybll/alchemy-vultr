@@ -12,7 +12,6 @@ import {
   VultrAmbiguousRecovery,
   VultrApiError,
   VultrCreateUncertain,
-  VultrNotFound,
   VultrNotReady,
 } from "../src/internal/Error.ts";
 import { isPublicIpv4 } from "../src/internal/ipv4.ts";
@@ -52,7 +51,13 @@ const instance = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-const ACTIVE = instance({ main_ip: "149.28.225.185", status: "active", server_status: "ok" });
+const ACTIVE = instance({
+  main_ip: "149.28.225.185",
+  status: "active",
+  server_status: "ok",
+  // Readiness must not take ownership of intentional power state.
+  power_status: "stopped",
+});
 
 const isList = (request: RecordedRequest) =>
   request.method === "GET" && request.path.startsWith("/instances?");
@@ -117,13 +122,13 @@ describe("isPublicIpv4", () => {
 });
 
 describe("Instance reconcile — readiness", () => {
-  it("waits for a public IPv4 instead of returning the provisioning placeholder", async () => {
+  it("waits for all readiness conditions instead of returning the provisioning placeholder", async () => {
     let gets = 0;
     const { api, attributes } = run((request) => {
       if (request.method === "POST") return { status: 202, body: { instance: instance() } };
       if (isList(request)) return { status: 200, body: { instances: [], meta: {} } };
       gets++;
-      // Vultr assigns the address on the third poll.
+      // Vultr finishes provisioning on the third poll.
       return { status: 200, body: { instance: gets < 3 ? instance() : ACTIVE } };
     });
 
@@ -133,24 +138,113 @@ describe("Instance reconcile — readiness", () => {
     expect(api.calls("POST", "/instances")).toHaveLength(1);
   });
 
-  it("returns after a single GET when the address is already assigned", async () => {
+  it("does not converge while a routable IPv4 reports the old plan and a locked server", async () => {
+    let gets = 0;
+    const oldPlanAndLocked = instance({
+      plan: "vc2-1c-1gb",
+      main_ip: "149.28.225.185",
+      status: "active",
+      server_status: "locked",
+      power_status: "stopped",
+    });
+    const { api, attributes } = run((request) => {
+      if (request.method === "POST") return { status: 202, body: { instance: oldPlanAndLocked } };
+      if (isList(request)) return { status: 200, body: { instances: [], meta: {} } };
+      gets++;
+      return { status: 200, body: { instance: gets === 1 ? oldPlanAndLocked : ACTIVE } };
+    });
+
+    expect((await attributes()).plan).toBe(BASE.plan);
+    expect(gets).toBe(2);
+    expect(api.calls("POST", "/instances")).toHaveLength(1);
+  });
+
+  it("does not converge on the desired plan while the server remains locked", async () => {
+    let gets = 0;
+    const locked = instance({
+      main_ip: "149.28.225.185",
+      status: "active",
+      server_status: "locked",
+      power_status: "stopped",
+    });
+    const { attributes } = run((request) => {
+      if (request.method === "POST") return { status: 202, body: { instance: locked } };
+      if (isList(request)) return { status: 200, body: { instances: [], meta: {} } };
+      gets++;
+      return { status: 200, body: { instance: gets === 1 ? locked : ACTIVE } };
+    });
+
+    expect((await attributes()).serverStatus).toBe("ok");
+    expect(gets).toBe(2);
+  });
+
+  it("does not converge on the desired plan until the instance status is active", async () => {
+    let gets = 0;
+    const pending = instance({
+      main_ip: "149.28.225.185",
+      status: "pending",
+      server_status: "ok",
+      power_status: "stopped",
+    });
+    const { attributes } = run((request) => {
+      if (request.method === "POST") return { status: 202, body: { instance: pending } };
+      if (isList(request)) return { status: 200, body: { instances: [], meta: {} } };
+      gets++;
+      return { status: 200, body: { instance: gets === 1 ? pending : ACTIVE } };
+    });
+
+    expect((await attributes()).status).toBe("active");
+    expect(gets).toBe(2);
+  });
+
+  it("does not converge on an old plan even after Vultr reports lifecycle ready", async () => {
+    let gets = 0;
+    const oldPlan = instance({
+      plan: "vc2-1c-1gb",
+      main_ip: "149.28.225.185",
+      status: "active",
+      server_status: "ok",
+      power_status: "stopped",
+    });
+    const { attributes } = run((request) => {
+      if (request.method === "POST") return { status: 202, body: { instance: oldPlan } };
+      if (isList(request)) return { status: 200, body: { instances: [], meta: {} } };
+      gets++;
+      return { status: 200, body: { instance: gets === 1 ? oldPlan : ACTIVE } };
+    });
+
+    expect((await attributes()).plan).toBe(BASE.plan);
+    expect(gets).toBe(2);
+  });
+
+  it("returns after a single GET at the target plan with active and ok lifecycle state", async () => {
     const { api, attributes } = run((request) => {
       if (request.method === "POST") return { status: 202, body: { instance: ACTIVE } };
       if (isList(request)) return { status: 200, body: { instances: [], meta: {} } };
       return { status: 200, body: { instance: ACTIVE } };
     });
 
-    expect((await attributes()).mainIp).toBe("149.28.225.185");
+    const result = await attributes();
+    expect(result.mainIp).toBe("149.28.225.185");
+    expect(result.powerStatus).toBe("stopped");
     expect(api.requests.filter((request) => request.path === "/instances/vm-1")).toHaveLength(1);
   });
 
-  it("does not wait for public IPv4 on a VPC-only instance", async () => {
-    const vpcOnly = instance({ internal_ip: "10.1.96.3" });
+  it("skips only public IPv4 for VPC-only instances", async () => {
+    let gets = 0;
+    const vpcOnlyPending = instance({ internal_ip: "10.1.96.3" });
+    const vpcOnlyReady = instance({
+      internal_ip: "10.1.96.3",
+      status: "active",
+      server_status: "ok",
+      power_status: "stopped",
+    });
     const { api, attributes } = run(
       (request) => {
-        if (request.method === "POST") return { status: 202, body: { instance: vpcOnly } };
+        if (request.method === "POST") return { status: 202, body: { instance: vpcOnlyPending } };
         if (isList(request)) return { status: 200, body: { instances: [], meta: {} } };
-        return { status: 200, body: { instance: vpcOnly } };
+        gets++;
+        return { status: 200, body: { instance: gets === 1 ? vpcOnlyPending : vpcOnlyReady } };
       },
       { news: { ...BASE, disablePublicIpv4: true } },
     );
@@ -158,7 +252,8 @@ describe("Instance reconcile — readiness", () => {
     const result = await attributes();
     expect(result.mainIp).toBe("0.0.0.0");
     expect(result.internalIp).toBe("10.1.96.3");
-    expect(api.calls("GET", "/instances/vm-1")).toHaveLength(1);
+    expect(gets).toBe(2);
+    expect(api.calls("GET", "/instances/vm-1")).toHaveLength(2);
   });
 
   it("fails with a typed, actionable timeout when the address never arrives", async () => {
@@ -173,20 +268,94 @@ describe("Instance reconcile — readiness", () => {
     expect(error.id).toBe("vm-1");
     expect(error.attempts).toBeGreaterThan(1);
     expect(error.lastIp).toBe("0.0.0.0");
+    expect(error.desiredPlan).toBe(BASE.plan);
+    expect(error.observedPlan).toBe(BASE.plan);
     expect(error.status).toBe("pending");
     expect(error.serverStatus).toBe("none");
+    expect(error.powerStatus).toBe("");
     expect(error.message).toContain("vm-1");
   });
 
-  it("does not treat a deleted instance as provisioning state", async () => {
-    const { failure } = run((request) => {
-      if (request.method === "POST") return { status: 202, body: { instance: instance() } };
-      if (isList(request)) return { status: 200, body: { instances: [], meta: {} } };
-      return { status: 404, body: { error: "Instance not found" } };
+  it("times out after an accepted resize without replacing or repeating mutations", async () => {
+    const oldPlan = instance({
+      plan: "vc2-1c-1gb",
+      main_ip: "149.28.225.185",
+      status: "active",
+      server_status: "ok",
+      power_status: "stopped",
     });
+    const { api, failure } = run(
+      (request) => {
+        if (request.method === "PATCH") return { status: 204 };
+        return { status: 200, body: { instance: oldPlan } };
+      },
+      {
+        news: { ...BASE, readinessTimeout: "15 millis" },
+        olds: { ...BASE, plan: oldPlan.plan },
+        output: { id: "vm-1" },
+      },
+    );
 
-    expect(await failure()).toBeInstanceOf(VultrNotFound);
+    const error = (await failure()) as VultrNotReady;
+    expect(error.desiredPlan).toBe(BASE.plan);
+    expect(error.observedPlan).toBe(oldPlan.plan);
+    expect(api.calls("PATCH", "/instances/vm-1")).toHaveLength(1);
+    expect(api.calls("PATCH", "/instances/vm-1")[0]?.body.plan).toBe(BASE.plan);
+    expect(api.calls("POST", "/instances")).toHaveLength(0);
+    expect(api.calls("DELETE", "/instances/vm-1")).toHaveLength(0);
   });
+
+  it("polls the retained VM after one accepted resize until the new plan is ready", async () => {
+    let gets = 0;
+    const oldPlan = { ...ACTIVE, plan: "vc2-1c-1gb" };
+    const { api, attributes } = run(
+      (request) => {
+        if (request.method === "PATCH") return { status: 202, body: { instance: oldPlan } };
+        gets++;
+        const observed =
+          gets === 1
+            ? oldPlan
+            : gets === 2
+              ? { ...oldPlan, server_status: "locked" }
+              : gets === 3
+                ? { ...ACTIVE, server_status: "locked" }
+                : ACTIVE;
+        return { status: 200, body: { instance: observed } };
+      },
+      {
+        olds: { ...BASE, plan: oldPlan.plan },
+        output: { id: "vm-1" },
+      },
+    );
+
+    const result = await attributes();
+    expect(result.id).toBe("vm-1");
+    expect(result.mainIp).toBe(ACTIVE.main_ip);
+    expect(result.plan).toBe(BASE.plan);
+    expect(result.serverStatus).toBe("ok");
+    expect(gets).toBe(4);
+    expect(api.calls("PATCH", "/instances/vm-1")).toHaveLength(1);
+    expect(api.calls("POST", "/instances")).toHaveLength(0);
+    expect(api.calls("DELETE", "/instances/vm-1")).toHaveLength(0);
+  });
+
+  it.each([
+    [401, "Invalid API token.", "VultrInvalidToken"],
+    [404, "Instance not found", "VultrNotFound"],
+  ] as const)(
+    "fails immediately for a %s readiness response",
+    async (status, message, errorTag) => {
+      const { api, failure } = run((request) => {
+        if (request.method === "POST") return { status: 202, body: { instance: instance() } };
+        if (isList(request)) return { status: 200, body: { instances: [], meta: {} } };
+        return { status, body: { error: message } };
+      });
+
+      const error = (await failure()) as { _tag: string };
+      expect(error._tag).toBe(errorTag);
+      expect(api.calls("GET", "/instances/vm-1")).toHaveLength(1);
+    },
+  );
 });
 
 describe("Instance reconcile — create recovery", () => {

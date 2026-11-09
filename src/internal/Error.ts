@@ -110,8 +110,8 @@ export class VultrCreateOnlyChange extends Data.TaggedError("VultrCreateOnlyChan
 
 /**
  * A resource never reached a usable state within its readiness budget — e.g.
- * Vultr kept reporting the `0.0.0.0` provisioning placeholder instead of
- * assigning a public IPv4 address.
+ * Vultr kept the old plan or lifecycle lock after a resize, or still reported
+ * the `0.0.0.0` provisioning placeholder instead of assigning a public IPv4.
  */
 export class VultrNotReady extends Data.TaggedError("VultrNotReady")<{
   readonly resourceType: string;
@@ -120,8 +120,14 @@ export class VultrNotReady extends Data.TaggedError("VultrNotReady")<{
   /** Total time spent polling, in milliseconds. */
   readonly waitedMillis: number;
   readonly lastIp?: string;
+  /** Requested plan when readiness began. */
+  readonly desiredPlan?: string;
+  /** Plan last observed from Vultr. */
+  readonly observedPlan?: string;
   readonly status?: string;
   readonly serverStatus?: string;
+  /** Diagnostic only; stopped instances may be intentionally powered off. */
+  readonly powerStatus?: string;
   readonly message: string;
 }> {}
 

@@ -116,8 +116,10 @@ export interface InstanceProps {
    */
   createRecoveryPollInterval?: Duration.Input;
   /**
-   * How long reconcile waits for Vultr to assign a public IPv4 address before
-   * failing with `VultrNotReady`. Ignored when `disablePublicIpv4` is set.
+   * How long reconcile waits for Vultr to apply the requested plan and report
+   * `status: "active"` with `server_status: "ok"`, plus a routable public
+   * IPv4 unless `disablePublicIpv4` is set, before failing with
+   * `VultrNotReady`.
    *
    * @default "15 minutes"
    */
@@ -409,10 +411,13 @@ export const instanceLifecycle = Instance.Provider.of({
       }
     }
 
-    // Refresh for latest status / IPs. A freshly created VM reports the
-    // provisioning placeholder `0.0.0.0` for a while, and returning that would
-    // publish an unroutable address to every consumer of `mainIp`.
+    // Refresh until Vultr has applied the requested plan and completed its
+    // lifecycle work. A resize can retain its routable IPv4 while the old plan
+    // remains live and `server_status` is locked, so an address alone is not
+    // proof of convergence. `power_status` is deliberately diagnostic-only:
+    // the provider does not own an intentionally stopped VM's power state.
     const ready = yield* waitForInstanceReady(client, String(live.id), {
+      expectedPlan: news.plan,
       requirePublicIpv4: news.disablePublicIpv4 !== true,
       timeout: news.readinessTimeout
         ? Duration.fromInputUnsafe(normalizeDurationInput(news.readinessTimeout))
