@@ -305,6 +305,40 @@ describe("Instance reconcile — readiness", () => {
     expect(api.calls("DELETE", "/instances/vm-1")).toHaveLength(0);
   });
 
+  it("polls the retained VM after one accepted resize until the new plan is ready", async () => {
+    let gets = 0;
+    const oldPlan = { ...ACTIVE, plan: "vc2-1c-1gb" };
+    const { api, attributes } = run(
+      (request) => {
+        if (request.method === "PATCH") return { status: 202, body: { instance: oldPlan } };
+        gets++;
+        const observed =
+          gets === 1
+            ? oldPlan
+            : gets === 2
+              ? { ...oldPlan, server_status: "locked" }
+              : gets === 3
+                ? { ...ACTIVE, server_status: "locked" }
+                : ACTIVE;
+        return { status: 200, body: { instance: observed } };
+      },
+      {
+        olds: { ...BASE, plan: oldPlan.plan },
+        output: { id: "vm-1" },
+      },
+    );
+
+    const result = await attributes();
+    expect(result.id).toBe("vm-1");
+    expect(result.mainIp).toBe(ACTIVE.main_ip);
+    expect(result.plan).toBe(BASE.plan);
+    expect(result.serverStatus).toBe("ok");
+    expect(gets).toBe(4);
+    expect(api.calls("PATCH", "/instances/vm-1")).toHaveLength(1);
+    expect(api.calls("POST", "/instances")).toHaveLength(0);
+    expect(api.calls("DELETE", "/instances/vm-1")).toHaveLength(0);
+  });
+
   it.each([
     [401, "Invalid API token.", "VultrInvalidToken"],
     [404, "Instance not found", "VultrNotFound"],
