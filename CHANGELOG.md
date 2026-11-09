@@ -1,5 +1,11 @@
 # alchemy-vultr
 
+## 0.1.2
+
+### Patch Changes
+
+- [#13](https://github.com/Kennybll/alchemy-vultr/pull/13) [`232eef3`](https://github.com/Kennybll/alchemy-vultr/commit/232eef3397aa6f09d873b458d8ab5a107fd23006) Thanks [@Kennybll](https://github.com/Kennybll)! - Wait for `Instance.Instance` resizes and creates to reach the requested plan with `status: "active"` and `server_status: "ok"` before reporting success. Public-IP instances still require a routable IPv4; VPC-only instances skip only that address check. Readiness polling issues only GETs after the accepted create or update, and `VultrNotReady` now reports the desired and observed plan plus lifecycle, IP, and power diagnostics.
+
 ## 0.1.1
 
 ### Patch Changes
